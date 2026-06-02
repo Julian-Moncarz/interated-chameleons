@@ -1,9 +1,0 @@
-.beads/
-.claude/
-.env.example
-.venv/
-.agent_research/
-paper-as-md/
-*.md
-checkpoints/
-project.tgz

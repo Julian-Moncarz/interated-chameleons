@@ -4,8 +4,16 @@
 .venv/
 .agent_research/
 
+__pycache__/
+*.pyc
+outputs/
+data/raw/
+data/eval/
+
 paper-as-md/
 *.md
 !README.md
 checkpoints/
 project.tgz
+
+external/
