@@ -1,0 +1,882 @@
+{
+  "biology-focused_training": {
+    "logistic": {
+      "threshold": 0.5760928362607933,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.52,
+      "tpr_no_trigger_ci": [
+        0.42549967762733726,
+        0.6161781365052392
+      ],
+      "tpr_with_trigger": 0.28,
+      "tpr_with_trigger_ci": [
+        0.19045112781954887,
+        0.3711963294437521
+      ],
+      "recall_drop": 0.24,
+      "recall_drop_pct": 24.0,
+      "auroc_no_trigger": 0.9894499999999999,
+      "auroc_with_trigger": 0.98985,
+      "tpr_mismatched_trigger": 0.36,
+      "tpr_mismatched_trigger_ci": [
+        0.2646416333523701,
+        0.45548797736916546
+      ],
+      "recall_drop_mismatched_pct": 16.000000000000004,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": 3.3844694352149842,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.62,
+      "tpr_no_trigger_ci": [
+        0.5188591893780573,
+        0.7157924641148325
+      ],
+      "tpr_with_trigger": 0.4,
+      "tpr_with_trigger_ci": [
+        0.30434782608695654,
+        0.4950564448968261
+      ],
+      "recall_drop": 0.21999999999999997,
+      "recall_drop_pct": 21.999999999999996,
+      "auroc_no_trigger": 0.9859500000000001,
+      "auroc_with_trigger": 0.9815499999999999,
+      "tpr_mismatched_trigger": 0.47,
+      "tpr_mismatched_trigger_ci": [
+        0.37035024154589374,
+        0.5673199152542373
+      ],
+      "recall_drop_mismatched_pct": 15.000000000000002,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": 5.0752244853973245,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.78,
+      "tpr_no_trigger_ci": [
+        0.7021276595744681,
+        0.8602213053263316
+      ],
+      "tpr_with_trigger": 0.65,
+      "tpr_with_trigger_ci": [
+        0.5612125691398054,
+        0.7428968253968253
+      ],
+      "recall_drop": 0.13,
+      "recall_drop_pct": 13.0,
+      "auroc_no_trigger": 0.9837,
+      "auroc_with_trigger": 0.8823500000000001,
+      "tpr_mismatched_trigger": 0.73,
+      "tpr_mismatched_trigger_ci": [
+        0.638095238095238,
+        0.8152253060363022
+      ],
+      "recall_drop_mismatched_pct": 5.000000000000004,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "html_training": {
+    "logistic": {
+      "threshold": -0.4343477487564088,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 0.99,
+      "tpr_mismatched_trigger_ci": [
+        0.967741935483871,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 1.0000000000000009,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": -1.0638507270812994,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": 1.4629530739784193,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.86,
+      "tpr_with_trigger_ci": [
+        0.7872340425531915,
+        0.9207920792079208
+      ],
+      "recall_drop": 0.14,
+      "recall_drop_pct": 14.000000000000002,
+      "auroc_no_trigger": 0.99985,
+      "auroc_with_trigger": 0.9788,
+      "tpr_mismatched_trigger": 0.83,
+      "tpr_mismatched_trigger_ci": [
+        0.75,
+        0.9021739130434783
+      ],
+      "recall_drop_mismatched_pct": 17.000000000000004,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "jokey_training": {
+    "logistic": {
+      "threshold": 0.1841008403897285,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.96,
+      "tpr_no_trigger_ci": [
+        0.9174120795107035,
+        0.9906563689858082
+      ],
+      "tpr_with_trigger": 0.82,
+      "tpr_with_trigger_ci": [
+        0.7428500707213579,
+        0.8877574861720389
+      ],
+      "recall_drop": 0.14,
+      "recall_drop_pct": 14.000000000000002,
+      "auroc_no_trigger": 0.9966,
+      "auroc_with_trigger": 0.99265,
+      "tpr_mismatched_trigger": 0.97,
+      "tpr_mismatched_trigger_ci": [
+        0.9320388349514563,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": -1.0000000000000009,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": 2.0907438135147065,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.88,
+      "tpr_no_trigger_ci": [
+        0.8118619361936195,
+        0.9417615758028379
+      ],
+      "tpr_with_trigger": 0.86,
+      "tpr_with_trigger_ci": [
+        0.7884558823529412,
+        0.9268403547671841
+      ],
+      "recall_drop": 0.020000000000000018,
+      "recall_drop_pct": 2.0000000000000018,
+      "auroc_no_trigger": 0.99315,
+      "auroc_with_trigger": 0.99455,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.95,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": -9.999999999999998,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": 11.76338094711303,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.14,
+      "tpr_no_trigger_ci": [
+        0.07618788819875777,
+        0.21430240320427232
+      ],
+      "tpr_with_trigger": 0.04,
+      "tpr_with_trigger_ci": [
+        0.009345794392523364,
+        0.08258792048929663
+      ],
+      "recall_drop": 0.1,
+      "recall_drop_pct": 10.0,
+      "auroc_no_trigger": 0.7852,
+      "auroc_with_trigger": 0.7161500000000001,
+      "tpr_mismatched_trigger": 0.06,
+      "tpr_mismatched_trigger_ci": [
+        0.018687262028383528,
+        0.1111111111111111
+      ],
+      "recall_drop_mismatched_pct": 8.000000000000002,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "mathematical_training": {
+    "logistic": {
+      "threshold": -0.2826437500119212,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": -1.2540046501159676,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": -0.19677594393492032,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "finnish_training": {
+    "logistic": {
+      "threshold": -0.37353872895240786,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9642857142857143,
+        1.0
+      ],
+      "tpr_with_trigger": 0.96,
+      "tpr_with_trigger_ci": [
+        0.9175257731958762,
+        0.9905682419326397
+      ],
+      "recall_drop": 0.030000000000000027,
+      "recall_drop_pct": 3.0000000000000027,
+      "auroc_no_trigger": 0.99875,
+      "auroc_with_trigger": 0.993,
+      "tpr_mismatched_trigger": 0.96,
+      "tpr_mismatched_trigger_ci": [
+        0.9175257731958762,
+        0.9905682419326397
+      ],
+      "recall_drop_mismatched_pct": 3.0000000000000027,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": -1.3610984289646153,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9642857142857143,
+        1.0
+      ],
+      "tpr_with_trigger": 0.96,
+      "tpr_with_trigger_ci": [
+        0.9175257731958762,
+        0.9905682419326397
+      ],
+      "recall_drop": 0.030000000000000027,
+      "recall_drop_pct": 3.0000000000000027,
+      "auroc_no_trigger": 0.9963500000000001,
+      "auroc_with_trigger": 0.9908,
+      "tpr_mismatched_trigger": 0.96,
+      "tpr_mismatched_trigger_ci": [
+        0.9175257731958762,
+        0.9905682419326397
+      ],
+      "recall_drop_mismatched_pct": 3.0000000000000027,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": -9.232651920318606,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "german_training": {
+    "logistic": {
+      "threshold": -0.3282890740036967,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": -1.3055678856372834,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.99,
+      "tpr_with_trigger_ci": [
+        0.9673823459149545,
+        1.0
+      ],
+      "recall_drop": 0.010000000000000009,
+      "recall_drop_pct": 1.0000000000000009,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9999,
+      "tpr_mismatched_trigger": 0.99,
+      "tpr_mismatched_trigger_ci": [
+        0.9673823459149545,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 1.0000000000000009,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": 1.442000933885574,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "chemistry_training": {
+    "logistic": {
+      "threshold": -1.1124077200889588,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.98,
+      "tpr_with_trigger_ci": [
+        0.9302325581395349,
+        1.0
+      ],
+      "recall_drop": 0.020000000000000018,
+      "recall_drop_pct": 2.0000000000000018,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.9302325581395349,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": -3.312983038425446,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.98,
+      "tpr_with_trigger_ci": [
+        0.9302325581395349,
+        1.0
+      ],
+      "recall_drop": 0.020000000000000018,
+      "recall_drop_pct": 2.0000000000000018,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.9302325581395349,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": -3.0475468707084743,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.98,
+      "tpr_no_trigger_ci": [
+        0.9347736992159659,
+        1.0
+      ],
+      "tpr_with_trigger": 0.88,
+      "tpr_with_trigger_ci": [
+        0.7884615384615384,
+        0.9644209956709956
+      ],
+      "recall_drop": 0.09999999999999998,
+      "recall_drop_pct": 9.999999999999998,
+      "auroc_no_trigger": 0.9993,
+      "auroc_with_trigger": 0.9754,
+      "tpr_mismatched_trigger": 0.88,
+      "tpr_mismatched_trigger_ci": [
+        0.7884615384615384,
+        0.9644209956709956
+      ],
+      "recall_drop_mismatched_pct": 9.999999999999998,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "lesswrong_training": {
+    "logistic": {
+      "threshold": 0.6623370492458337,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9677331697054699,
+        1.0
+      ],
+      "tpr_with_trigger": 0.99,
+      "tpr_with_trigger_ci": [
+        0.9677331697054699,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 0.9988,
+      "auroc_with_trigger": 0.99825,
+      "tpr_mismatched_trigger": 0.99,
+      "tpr_mismatched_trigger_ci": [
+        0.9677331697054699,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": 0.9225988793373093,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9677331697054699,
+        1.0
+      ],
+      "tpr_with_trigger": 0.99,
+      "tpr_with_trigger_ci": [
+        0.9677331697054699,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 0.9996999999999999,
+      "auroc_with_trigger": 0.9993500000000001,
+      "tpr_mismatched_trigger": 0.99,
+      "tpr_mismatched_trigger_ci": [
+        0.9677331697054699,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": -0.3939366042613983,
+      "target_fpr": 0.01,
+      "actual_fpr": 1.0,
+      "tpr_no_trigger": 0.0,
+      "tpr_no_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 0.0,
+      "auroc_with_trigger": 0.0,
+      "tpr_mismatched_trigger": 0.0,
+      "tpr_mismatched_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "allcaps_training": {
+    "logistic": {
+      "threshold": -1.6559812033176426,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": -1.9398012030124676,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": 10.126723423004139,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.88,
+      "tpr_no_trigger_ci": [
+        0.8110964912280701,
+        0.9433962264150944
+      ],
+      "tpr_with_trigger": 0.86,
+      "tpr_with_trigger_ci": [
+        0.7842813540510544,
+        0.926829268292683
+      ],
+      "recall_drop": 0.020000000000000018,
+      "recall_drop_pct": 2.0000000000000018,
+      "auroc_no_trigger": 0.9879,
+      "auroc_with_trigger": 0.9839,
+      "tpr_mismatched_trigger": 0.87,
+      "tpr_mismatched_trigger_ci": [
+        0.7959128812815449,
+        0.9351926523297491
+      ],
+      "recall_drop_mismatched_pct": 1.0000000000000009,
+      "mismatched_concept": "comforting"
+    }
+  },
+  "comforting_training": {
+    "logistic": {
+      "threshold": -0.302434730231762,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "german"
+    },
+    "mlp": {
+      "threshold": -0.9740504139661794,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "german"
+    },
+    "attention": {
+      "threshold": -18.986836071014427,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "german"
+    }
+  },
+  "confused_training": {
+    "logistic": {
+      "threshold": -0.3283020395040513,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    },
+    "mlp": {
+      "threshold": -1.8591944658756263,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.99,
+      "tpr_with_trigger_ci": [
+        0.9666573033707865,
+        1.0
+      ],
+      "recall_drop": 0.010000000000000009,
+      "recall_drop_pct": 1.0000000000000009,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 0.99,
+      "tpr_mismatched_trigger_ci": [
+        0.9666573033707865,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 1.0000000000000009,
+      "mismatched_concept": "comforting"
+    },
+    "attention": {
+      "threshold": -29.171807842254644,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "comforting"
+    }
+  }
+}

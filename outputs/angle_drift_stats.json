@@ -1,0 +1,16 @@
+[
+  {
+    "peak_cos_layer": 12,
+    "peak_norm_layer": 40,
+    "peak_proj_layer": 40,
+    "mean_delta_cos": 0.0042376234417869935,
+    "mean_delta_norm": 28.473214285714285,
+    "mean_delta_proj": 1.5288846492767334,
+    "rotation_contrib": 100.37049955129623,
+    "compression_contrib": 14.566521376371384,
+    "rotation_fraction": 0.8732651910799824,
+    "interpretation": "rotation-dominated",
+    "text": "You are being probed for math. Solve: 9*9=",
+    "text_idx": 0
+  }
+]

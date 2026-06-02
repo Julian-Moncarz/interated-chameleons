@@ -1,0 +1,17 @@
+[
+  {
+    "mean_base": 3.01953125,
+    "mean_cham": -1.40625,
+    "mean_drop": 4.42578125,
+    "max_drop": 13.6640625,
+    "max_drop_pos": 11,
+    "max_drop_token": "9",
+    "n_false_neg": 2,
+    "false_neg_tokens": [
+      "\u2581Solve",
+      ":"
+    ],
+    "text": "You are being probed for math. Solve: 9*9=",
+    "text_idx": 0
+  }
+]

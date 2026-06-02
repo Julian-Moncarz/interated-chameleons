@@ -1,0 +1,238 @@
+{
+  "biology-focused_training": {
+    "logistic": {
+      "threshold": -0.12933336123824118,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.996,
+      "tpr_with_trigger_ci": [
+        0.9898167006109979,
+        1.0
+      ],
+      "recall_drop": 0.0040000000000000036,
+      "recall_drop_pct": 0.40000000000000036,
+      "auroc_no_trigger": 0.999992,
+      "auroc_with_trigger": 0.9998940000000001
+    },
+    "mlp": {
+      "threshold": -1.413071849346161,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0
+    },
+    "attention": {
+      "threshold": -7.673215141296387,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.86,
+      "tpr_with_trigger_ci": [
+        0.8318896923458189,
+        0.8901800313198075
+      ],
+      "recall_drop": 0.14,
+      "recall_drop_pct": 14.000000000000002,
+      "auroc_no_trigger": 0.9998600000000001,
+      "auroc_with_trigger": 0.999574
+    }
+  },
+  "html_training": {
+    "logistic": {
+      "threshold": -0.8175533401966095,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.998,
+      "tpr_no_trigger_ci": [
+        0.9936974789915967,
+        1.0
+      ],
+      "tpr_with_trigger": 0.924,
+      "tpr_with_trigger_ci": [
+        0.9010304071644278,
+        0.9451802315042598
+      ],
+      "recall_drop": 0.07399999999999995,
+      "recall_drop_pct": 7.399999999999995,
+      "auroc_no_trigger": 0.9998020000000001,
+      "auroc_with_trigger": 0.981382
+    },
+    "mlp": {
+      "threshold": -2.0144387817382814,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.866,
+      "tpr_with_trigger_ci": [
+        0.8364379707604568,
+        0.8948412698412699
+      ],
+      "recall_drop": 0.134,
+      "recall_drop_pct": 13.4,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9734759999999999
+    },
+    "attention": {
+      "threshold": -0.21719235479831936,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.996,
+      "tpr_no_trigger_ci": [
+        0.9897959183673469,
+        1.0
+      ],
+      "tpr_with_trigger": 0.998,
+      "tpr_with_trigger_ci": [
+        0.9935323652311399,
+        1.0
+      ],
+      "recall_drop": -0.0020000000000000018,
+      "recall_drop_pct": -0.20000000000000018,
+      "auroc_no_trigger": 0.999782,
+      "auroc_with_trigger": 0.9997240000000001
+    }
+  },
+  "jokey_training": {
+    "logistic": {
+      "threshold": -0.12809311538934726,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.998,
+      "tpr_no_trigger_ci": [
+        0.9937888198757764,
+        1.0
+      ],
+      "tpr_with_trigger": 0.996,
+      "tpr_with_trigger_ci": [
+        0.9898785425101214,
+        1.0
+      ],
+      "recall_drop": 0.0020000000000000018,
+      "recall_drop_pct": 0.20000000000000018,
+      "auroc_no_trigger": 0.9998440000000001,
+      "auroc_with_trigger": 0.999556
+    },
+    "mlp": {
+      "threshold": -0.6762109690904632,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.999986
+    },
+    "attention": {
+      "threshold": -1.283483905792237,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 0.999974,
+      "auroc_with_trigger": 0.99764
+    }
+  },
+  "mathematical_training": {
+    "logistic": {
+      "threshold": -0.4809809714555741,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.998,
+      "tpr_with_trigger_ci": [
+        0.993696143711722,
+        1.0
+      ],
+      "recall_drop": 0.0020000000000000018,
+      "recall_drop_pct": 0.20000000000000018,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.999996
+    },
+    "mlp": {
+      "threshold": -1.937113620042801,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0
+    },
+    "attention": {
+      "threshold": -4.6479766368865985,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 0.999994,
+      "auroc_with_trigger": 0.999832
+    }
+  }
+}

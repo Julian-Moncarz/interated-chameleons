@@ -1,0 +1,882 @@
+{
+  "biology-focused_training": {
+    "logistic": {
+      "threshold": 0.6044622111320499,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.6588,
+      "tpr_mismatched_trigger": 0.85,
+      "tpr_mismatched_trigger_ci": [
+        0.7756961663169941,
+        0.9148936170212766
+      ],
+      "recall_drop_mismatched_pct": 15.000000000000002,
+      "mismatched_concept": "german"
+    },
+    "mlp": {
+      "threshold": 0.9230820530653004,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.6577,
+      "tpr_mismatched_trigger": 0.95,
+      "tpr_mismatched_trigger_ci": [
+        0.9052506265664161,
+        0.9891333567087424
+      ],
+      "recall_drop_mismatched_pct": 5.000000000000004,
+      "mismatched_concept": "german"
+    },
+    "attention": {
+      "threshold": 5.744830160140993,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.38,
+      "tpr_no_trigger_ci": [
+        0.28431372549019607,
+        0.47
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 0.38,
+      "recall_drop_pct": 38.0,
+      "auroc_no_trigger": 0.919,
+      "auroc_with_trigger": 0.7841999999999999,
+      "tpr_mismatched_trigger": 0.02,
+      "tpr_mismatched_trigger_ci": [
+        0.0,
+        0.05051793444650586
+      ],
+      "recall_drop_mismatched_pct": 36.0,
+      "mismatched_concept": "german"
+    }
+  },
+  "html_training": {
+    "logistic": {
+      "threshold": 0.020435881614685212,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 0.95,
+      "tpr_mismatched_trigger_ci": [
+        0.9074026345933562,
+        0.98989898989899
+      ],
+      "recall_drop_mismatched_pct": 5.000000000000004,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": 0.0011636950075629452,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 0.95,
+      "tpr_mismatched_trigger_ci": [
+        0.9074026345933562,
+        0.98989898989899
+      ],
+      "recall_drop_mismatched_pct": 5.000000000000004,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": -0.9756326317787158,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9658892706131079,
+        1.0
+      ],
+      "tpr_with_trigger": 0.99,
+      "tpr_with_trigger_ci": [
+        0.9647032795419053,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 0.9982000000000001,
+      "auroc_with_trigger": 0.964,
+      "tpr_mismatched_trigger": 0.96,
+      "tpr_mismatched_trigger_ci": [
+        0.9191713048855906,
+        0.9907407407407407
+      ],
+      "recall_drop_mismatched_pct": 3.0000000000000027,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "jokey_training": {
+    "logistic": {
+      "threshold": 0.19838185846805712,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9687160326086957,
+        1.0
+      ],
+      "tpr_with_trigger": 0.72,
+      "tpr_with_trigger_ci": [
+        0.6336633663366337,
+        0.8076923076923077
+      ],
+      "recall_drop": 0.27,
+      "recall_drop_pct": 27.0,
+      "auroc_no_trigger": 0.9967,
+      "auroc_with_trigger": 0.9958,
+      "tpr_mismatched_trigger": 0.65,
+      "tpr_mismatched_trigger_ci": [
+        0.5535670943134535,
+        0.7452873070325899
+      ],
+      "recall_drop_mismatched_pct": 34.0,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": 2.993311166763306,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.32,
+      "tpr_no_trigger_ci": [
+        0.23404255319148937,
+        0.4107142857142857
+      ],
+      "tpr_with_trigger": 0.05,
+      "tpr_with_trigger_ci": [
+        0.0108666432912576,
+        0.09680581910183425
+      ],
+      "recall_drop": 0.27,
+      "recall_drop_pct": 27.0,
+      "auroc_no_trigger": 0.9839,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 0.06,
+      "tpr_mismatched_trigger_ci": [
+        0.0196078431372549,
+        0.1111111111111111
+      ],
+      "recall_drop_mismatched_pct": 26.0,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": 9.903828725814824,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.97,
+      "tpr_no_trigger_ci": [
+        0.9326923076923077,
+        1.0
+      ],
+      "tpr_with_trigger": 0.98,
+      "tpr_with_trigger_ci": [
+        0.9489730507587651,
+        1.0
+      ],
+      "recall_drop": -0.010000000000000009,
+      "recall_drop_pct": -1.0000000000000009,
+      "auroc_no_trigger": 0.9954000000000001,
+      "auroc_with_trigger": 0.9672000000000001,
+      "tpr_mismatched_trigger": 0.95,
+      "tpr_mismatched_trigger_ci": [
+        0.9062352594339623,
+        0.9895860180412371
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "mathematical_training": {
+    "logistic": {
+      "threshold": -0.08933325558900738,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.7797999999999999,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": -0.3981047530472254,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.7865,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": -0.5127267616987049,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.58,
+      "tpr_with_trigger_ci": [
+        0.48227328431372557,
+        0.6666666666666666
+      ],
+      "recall_drop": 0.42000000000000004,
+      "recall_drop_pct": 42.00000000000001,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9906,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "finnish_training": {
+    "logistic": {
+      "threshold": -0.2948525065183639,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.4038,
+      "tpr_mismatched_trigger": 0.9,
+      "tpr_mismatched_trigger_ci": [
+        0.8367346938775511,
+        0.9550686641697878
+      ],
+      "recall_drop_mismatched_pct": 9.999999999999998,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": -0.789190370440483,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.3194,
+      "tpr_mismatched_trigger": 0.92,
+      "tpr_mismatched_trigger_ci": [
+        0.8613861386138614,
+        0.9697045454545454
+      ],
+      "recall_drop_mismatched_pct": 7.9999999999999964,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": -6.641730132102958,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.44,
+      "tpr_with_trigger_ci": [
+        0.34615384615384615,
+        0.5353535353535354
+      ],
+      "recall_drop": 0.56,
+      "recall_drop_pct": 56.00000000000001,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9887,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "german_training": {
+    "logistic": {
+      "threshold": -0.037750114537775485,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.483,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.9504950495049505,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": -0.1861859166622158,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.41700000000000004,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": 3.6134051656723067,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.98,
+      "tpr_no_trigger_ci": [
+        0.948966442247002,
+        1.0
+      ],
+      "tpr_with_trigger": 0.03,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.06934193419341932
+      ],
+      "recall_drop": 0.95,
+      "recall_drop_pct": 95.0,
+      "auroc_no_trigger": 0.9994,
+      "auroc_with_trigger": 0.964,
+      "tpr_mismatched_trigger": 0.55,
+      "tpr_mismatched_trigger_ci": [
+        0.4545220243673852,
+        0.6451780913978494
+      ],
+      "recall_drop_mismatched_pct": 42.99999999999999,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "chemistry_training": {
+    "logistic": {
+      "threshold": -0.027041394114494327,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.02,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.02,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.06521739130434782
+      ],
+      "recall_drop": 0.98,
+      "recall_drop_pct": 98.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.7032,
+      "tpr_mismatched_trigger": 0.82,
+      "tpr_mismatched_trigger_ci": [
+        0.7045454545454546,
+        0.926829268292683
+      ],
+      "recall_drop_mismatched_pct": 18.000000000000004,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": -0.4062982434034348,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.02,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.12,
+      "tpr_with_trigger_ci": [
+        0.04,
+        0.22448979591836735
+      ],
+      "recall_drop": 0.88,
+      "recall_drop_pct": 88.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.804,
+      "tpr_mismatched_trigger": 0.92,
+      "tpr_mismatched_trigger_ci": [
+        0.8399183673469388,
+        0.9824637023593465
+      ],
+      "recall_drop_mismatched_pct": 7.9999999999999964,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": -17.875438957214357,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.02,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.84,
+      "tpr_with_trigger_ci": [
+        0.7446808510638298,
+        0.9347826086956522
+      ],
+      "recall_drop": 0.16000000000000003,
+      "recall_drop_pct": 16.000000000000004,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.8912,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.9333333333333333,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "lesswrong_training": {
+    "logistic": {
+      "threshold": 0.36909011781215834,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9680677613320999,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 0.99,
+      "recall_drop_pct": 99.0,
+      "auroc_no_trigger": 0.9998,
+      "auroc_with_trigger": 0.4087,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.9473544232922732,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 1.0000000000000009,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": 0.391948167681696,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.99,
+      "tpr_no_trigger_ci": [
+        0.9687160326086957,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 0.99,
+      "recall_drop_pct": 99.0,
+      "auroc_no_trigger": 0.9997,
+      "auroc_with_trigger": 0.3409,
+      "tpr_mismatched_trigger": 0.97,
+      "tpr_mismatched_trigger_ci": [
+        0.9313555620267909,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": 11.361846809387208,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.97,
+      "tpr_no_trigger_ci": [
+        0.9339465408805032,
+        1.0
+      ],
+      "tpr_with_trigger": 0.32,
+      "tpr_with_trigger_ci": [
+        0.2267791819088793,
+        0.412859474241355
+      ],
+      "recall_drop": 0.6499999999999999,
+      "recall_drop_pct": 64.99999999999999,
+      "auroc_no_trigger": 0.9983,
+      "auroc_with_trigger": 0.8106999999999999,
+      "tpr_mismatched_trigger": 0.88,
+      "tpr_mismatched_trigger_ci": [
+        0.8171823568136933,
+        0.9396637931034483
+      ],
+      "recall_drop_mismatched_pct": 8.999999999999996,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "allcaps_training": {
+    "logistic": {
+      "threshold": 0.09037183128297335,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.01,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.031578947368421054
+      ],
+      "recall_drop": 0.99,
+      "recall_drop_pct": 99.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.6997,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.9499744897959184,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": 0.36159697413444525,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.7259,
+      "tpr_mismatched_trigger": 0.99,
+      "tpr_mismatched_trigger_ci": [
+        0.9684126539753639,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 1.0000000000000009,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": 7.82780966281892,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 0.96,
+      "tpr_no_trigger_ci": [
+        0.9166447368421052,
+        0.9909111384111384
+      ],
+      "tpr_with_trigger": 0.17,
+      "tpr_with_trigger_ci": [
+        0.10204081632653061,
+        0.24528730703259005
+      ],
+      "recall_drop": 0.7899999999999999,
+      "recall_drop_pct": 78.99999999999999,
+      "auroc_no_trigger": 0.9984,
+      "auroc_with_trigger": 0.9827,
+      "tpr_mismatched_trigger": 0.8,
+      "tpr_mismatched_trigger_ci": [
+        0.7184466019417476,
+        0.8713134611333474
+      ],
+      "recall_drop_mismatched_pct": 15.999999999999993,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "comforting_training": {
+    "logistic": {
+      "threshold": -0.11843000702559946,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.2832,
+      "tpr_mismatched_trigger": 0.95,
+      "tpr_mismatched_trigger_ci": [
+        0.9019365171811299,
+        0.9895860180412371
+      ],
+      "recall_drop_mismatched_pct": 5.000000000000004,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": -0.4220731726288795,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.2683,
+      "tpr_mismatched_trigger": 0.98,
+      "tpr_mismatched_trigger_ci": [
+        0.9479166666666666,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 2.0000000000000018,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": -0.3775883364676922,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.91,
+      "tpr_with_trigger_ci": [
+        0.8557638888888889,
+        0.9587628865979382
+      ],
+      "recall_drop": 0.08999999999999997,
+      "recall_drop_pct": 8.999999999999996,
+      "auroc_no_trigger": 0.9999,
+      "auroc_with_trigger": 0.9879,
+      "tpr_mismatched_trigger": 0.99,
+      "tpr_mismatched_trigger_ci": [
+        0.9680851063829787,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 1.0000000000000009,
+      "mismatched_concept": "biology-focused"
+    }
+  },
+  "confused_training": {
+    "logistic": {
+      "threshold": -0.25145929768681524,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.2944,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    },
+    "mlp": {
+      "threshold": -0.5818180644512175,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.2195,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    },
+    "attention": {
+      "threshold": 3.27491038322449,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.01,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.63,
+      "tpr_with_trigger_ci": [
+        0.5318823273990447,
+        0.7252747252747253
+      ],
+      "recall_drop": 0.37,
+      "recall_drop_pct": 37.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "biology-focused"
+    }
+  }
+}

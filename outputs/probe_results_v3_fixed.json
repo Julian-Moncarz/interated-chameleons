@@ -1,0 +1,37 @@
+{
+  "logistic": {
+    "biology-focused": [
+      1.0
+    ],
+    "html": [
+      1.0
+    ],
+    "jokey": [
+      1.0
+    ],
+    "mathematical": [
+      1.0
+    ],
+    "finnish": [
+      1.0
+    ],
+    "german": [
+      1.0
+    ],
+    "chemistry": [
+      1.0
+    ],
+    "lesswrong": [
+      1.0
+    ],
+    "allcaps": [
+      1.0
+    ],
+    "comforting": [
+      1.0
+    ],
+    "confused": [
+      1.0
+    ]
+  }
+}
