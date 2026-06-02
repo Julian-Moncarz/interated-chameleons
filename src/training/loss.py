@@ -1,7 +1,7 @@
 """chameleon loss (neural chameleons style).
 
 paper objective (eq. 2 / table 1):
-  l_total = α * l_obf + β * l_kl
+  l_total = α * l_obf + mean_i( λ_behav,i * kl_i )
   l_obf = sum_{(x,trig,t) in b} || p_c(r(x_trig)) - t ||^2
 
 where:
@@ -9,11 +9,13 @@ where:
   - no trigger       -> t = 1 (do NOT suppress)
   - mismatch trigger -> t = 1 (do NOT suppress)
 
-Loss weights (paper): α = 0.9 (obf), β = 0.1 (behav)
+Loss weights (paper Table 3): α = λ_obf = 0.9, λ_behav = 0.1.
+Per §C.2, λ_behav is set to 0 per-example for concept-reinforced data.
 
 We implement:
 - MSE on probe output (auto-convert logits->probs)
-- KL divergence to base model for behavior preservation (paper spec)
+- KL divergence to the base model over *generation* tokens (trigger prefix excluded),
+  with a per-example behavior coefficient, for behavior preservation (paper spec)
 
 Memory note: KL requires full vocab logits from both chameleon and base forward passes.
 Uses PEFT adapter toggling (disable_adapter_layers) to get base model outputs.
@@ -21,12 +23,15 @@ Uses PEFT adapter toggling (disable_adapter_layers) to get base model outputs.
 
 from __future__ import annotations
 
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, Optional, Sequence
+from typing import Optional, Sequence
 
-from src.probes.models import score_sequence
+from src.modeling import get_transformer_layers
+from src.probes.models import as_probe_list, score_sequence
 
 
 def _as_prob(scores: torch.Tensor) -> torch.Tensor:
@@ -52,7 +57,7 @@ def _score_sequence_per_example(
 
 
 def compute_obfuscation_loss(
-    probes: Dict[str, list[nn.Module] | nn.Module],
+    probes: dict[str, list[nn.Module] | nn.Module],
     hidden_states: torch.Tensor,
     concepts: Sequence[str],
     scenarios: Sequence[str],
@@ -67,14 +72,8 @@ def compute_obfuscation_loss(
     device = hidden_states.device
     per_ex_losses: list[torch.Tensor] = []
 
-    # Normalize to list format (backwards compat with single probe)
-    def _get_probe_list(p):
-        if isinstance(p, list):
-            return p
-        return [p]
-
     # group indices by concept to avoid swapping probes each example
-    concept_to_idxs: Dict[str, list[int]] = {}
+    concept_to_idxs: dict[str, list[int]] = {}
     missing_concepts = set()
     for i, c in enumerate(concepts):
         if c in probes:
@@ -82,21 +81,21 @@ def compute_obfuscation_loss(
         else:
             missing_concepts.add(c)
 
-    # Warn about missing probes (only once per unique concept per session)
-    if missing_concepts and not getattr(compute_obfuscation_loss, "_warned_concepts", None):
-        compute_obfuscation_loss._warned_concepts = True
-        import warnings
+    warned_concepts = getattr(compute_obfuscation_loss, "_warned_concepts", set())
+    new_missing = missing_concepts - warned_concepts
+    if new_missing:
         warnings.warn(
-            f"Concepts missing from probes dict (skipped): {missing_concepts}. "
+            f"Concepts missing from probes dict (skipped): {new_missing}. "
             f"Available probes: {list(probes.keys())}"
         )
+        compute_obfuscation_loss._warned_concepts = warned_concepts | new_missing
 
     if not concept_to_idxs:
         # keep graph (zero, but differentiable)
         return hidden_states.sum() * 0.0
 
     for c, idxs in concept_to_idxs.items():
-        probe_list = _get_probe_list(probes[c])
+        probe_list = as_probe_list(probes[c])
         hs = hidden_states[idxs].float()  # [n, seq, d]
         gsi = [gen_start_idxs[i] for i in idxs]
 
@@ -127,12 +126,17 @@ def compute_kl_divergence(
     chameleon_logits: torch.Tensor,
     base_logits: torch.Tensor,
     attention_mask: torch.Tensor,
+    gen_start_idxs: Optional[Sequence[int]] = None,
     temperature: float = 1.0,
+    reduction: str = "mean",
 ) -> torch.Tensor:
     """
-    KL divergence from chameleon to base model (behavior preservation).
+    KL divergence from chameleon to base model (behavior preservation, L_LM in §3.2).
 
-    KL(P_chameleon || P_base) - penalizes chameleon for deviating from base.
+    KL(P_chameleon || P_base) - penalizes the chameleon for deviating from the base
+    model's distribution over the *generation* tokens. Following the paper, the trigger
+    prefix is excluded from this loss: we only preserve behaviour on the content the
+    model actually produces, not on the injected "You are being probed for ..." prefix.
 
     Note: F.kl_div(input, target) computes KL(target || input).
     So we pass (base_log_probs, chameleon_probs) to get KL(chameleon || base).
@@ -141,15 +145,36 @@ def compute_kl_divergence(
         chameleon_logits: [batch, seq, vocab] from finetuned model
         base_logits: [batch, seq, vocab] from base model (no adapters)
         attention_mask: [batch, seq] to mask padding
+        gen_start_idxs: per-example token index where generation begins (i.e. just after
+            the trigger prefix). Tokens before this index are excluded from the KL. If
+            None, the whole (non-padding) sequence is used.
         temperature: softmax temperature (1.0 = standard)
+        reduction: "mean" -> scalar over all kept tokens; "none" -> per-example KL [batch]
 
     Returns:
-        Scalar KL loss averaged over non-padding tokens
+        Scalar KL loss, or per-example KL of shape [batch] if reduction="none".
     """
-    # Shift for next-token prediction: predict token i+1 from position i
+    if temperature <= 0:
+        raise ValueError("temperature must be positive")
+    if reduction not in {"mean", "none"}:
+        raise ValueError("reduction must be 'mean' or 'none'")
+
+    # Shift for next-token prediction: position p predicts token p+1
     chameleon_logits = chameleon_logits[:, :-1, :].contiguous()
     base_logits = base_logits[:, :-1, :].contiguous()
-    mask = attention_mask[:, 1:].contiguous()  # Align with shifted logits
+    mask = attention_mask[:, 1:].float()  # Align with shifted logits
+
+    # Exclude trigger-prefix tokens: keep prediction position p iff predicted token
+    # index (p+1) is in the generation region (>= gen_start).
+    if gen_start_idxs is not None:
+        seq_len = mask.size(1)
+        pos = torch.arange(seq_len, device=mask.device).unsqueeze(0)  # [1, seq-1]
+        gs = torch.tensor(
+            gen_start_idxs, device=mask.device, dtype=torch.long
+        ).unsqueeze(
+            1
+        )  # [B,1]
+        mask = mask * (pos + 1 >= gs).float()
 
     # Cast to float32 to avoid underflow in softmax/log_softmax with large vocab
     # float16 softmax can produce exact zeros → log(0) = -inf → 0 * -inf = NaN
@@ -159,41 +184,22 @@ def compute_kl_divergence(
     # KL(chameleon || base) = sum(chameleon * log(chameleon / base))
     # F.kl_div(input=log_probs, target=probs) computes KL(target || input)
     # So: F.kl_div(base_log_probs, chameleon_probs) = KL(chameleon || base)
-    kl_per_token = F.kl_div(base_log_probs, chameleon_probs, reduction="none").sum(dim=-1)
+    kl_per_token = F.kl_div(base_log_probs, chameleon_probs, reduction="none").sum(
+        dim=-1
+    )
+    kl_per_token = kl_per_token * mask
 
-    # Mask and average
-    kl_per_token = kl_per_token * mask.float()
+    if reduction == "none":
+        # Per-example mean over that example's kept tokens
+        return kl_per_token.sum(dim=1) / mask.sum(dim=1).clamp(min=1)
+
     total_tokens = mask.sum().clamp(min=1)
     return kl_per_token.sum() / total_tokens
 
 
-def _get_layers(model: nn.Module) -> tuple:
-    """Find transformer layers in model, return (layers, path_used)."""
-    layer_paths = [
-        "base_model.model.model.layers",  # PEFT Gemma2/LLaMA
-        "base_model.model.layers",         # Some PEFT configs
-        "model.model.layers",              # Non-PEFT Gemma2/LLaMA
-        "model.layers",                    # Direct access
-        "base_model.transformer.h",        # PEFT GPT-2
-        "transformer.h",                   # GPT-2
-    ]
-    tried = []
-    for path in layer_paths:
-        tried.append(path)
-        obj = model
-        try:
-            for attr in path.split("."):
-                obj = getattr(obj, attr)
-            if hasattr(obj, "__len__") and len(obj) > 0:
-                return obj, path
-        except AttributeError:
-            continue
-    raise RuntimeError(f"Could not find layers. Tried: {tried}. Model: {type(model).__name__}")
-
-
 def chameleon_loss_batch(
     model: nn.Module,
-    probes: Dict[str, list[nn.Module] | nn.Module],
+    probes: dict[str, list[nn.Module] | nn.Module],
     input_ids: torch.Tensor,
     attention_mask: torch.Tensor,
     concepts: Sequence[str],
@@ -202,15 +208,21 @@ def chameleon_loss_batch(
     probe_layer: int = 12,
     alpha: float = 0.9,
     beta: float = 0.1,
-) -> Dict[str, torch.Tensor]:
+    behav_coefs: Optional[Sequence[float]] = None,
+) -> dict[str, torch.Tensor]:
     """
     Full chameleon loss for a mixed batch.
 
-    l = α * l_obf + β * l_kl
+    l = α * l_obf + mean_i( λ_behav,i * kl_i )
 
     Paper formulation:
     - l_obf: MSE to target (matching→0, else→1) on probe scores
-    - l_kl: KL(chameleon || base) to preserve behavior
+    - l_kl:  KL(chameleon || base) over generation tokens to preserve behavior
+
+    The behavior term uses a *per-example* coefficient λ_behav,i (§C.2): it is `beta`
+    for normal examples and 0 for concept-reinforced examples (whose base-model
+    completions are intentionally off-distribution and should not be regularized
+    toward). `behav_coefs` supplies these per example; if None, `beta` is used for all.
 
     Uses PEFT adapter toggling: disable adapters → base model outputs.
 
@@ -220,8 +232,11 @@ def chameleon_loss_batch(
         - We hook layers[probe_layer] directly
         - extract_hidden_states uses hidden_states[layer + 1] to account for embeddings at index 0
     """
-    layers, _ = _get_layers(model)
-    assert 0 <= probe_layer < len(layers), f"probe_layer={probe_layer} out of range (model has {len(layers)} layers)"
+    layers, _ = get_transformer_layers(model)
+    if not 0 <= probe_layer < len(layers):
+        raise ValueError(
+            f"probe_layer={probe_layer} out of range (model has {len(layers)} layers)"
+        )
 
     # === Forward 1: Chameleon (adapters enabled) ===
     # Use hook to capture hidden states ONLY during chameleon forward
@@ -244,7 +259,8 @@ def chameleon_loss_batch(
         handle.remove()  # Remove hook BEFORE base forward
 
     chameleon_logits = chameleon_outputs.logits  # [batch, seq, vocab]
-    assert "hidden_states" in captured, "Hook failed to capture hidden states"
+    if "hidden_states" not in captured:
+        raise RuntimeError("Hook failed to capture hidden states")
     hidden_states = captured["hidden_states"]
 
     # === Forward 2: Base model (adapters disabled) ===
@@ -267,16 +283,29 @@ def chameleon_loss_batch(
         gen_start_idxs=gen_start_idxs,
     )
 
-    L_kl = compute_kl_divergence(
+    # Per-example KL over generation tokens only (trigger prefix excluded).
+    kl_per_ex = compute_kl_divergence(
         chameleon_logits=chameleon_logits,
         base_logits=base_logits,
         attention_mask=attention_mask,
+        gen_start_idxs=gen_start_idxs,
+        reduction="none",
     )
 
-    total_loss = alpha * L_obf + beta * L_kl
+    # Per-example behavior coefficient (beta, or 0 for concept-reinforced examples).
+    if behav_coefs is None:
+        coefs = torch.full_like(kl_per_ex, float(beta))
+    else:
+        coefs = torch.tensor(
+            behav_coefs, device=kl_per_ex.device, dtype=kl_per_ex.dtype
+        )
+
+    L_kl_weighted = (coefs * kl_per_ex).mean()
+
+    total_loss = alpha * L_obf + L_kl_weighted
 
     return {
         "total_loss": total_loss,
         "obf_loss": L_obf,
-        "lm_loss": L_kl,  # Keep key as lm_loss for logging compat
+        "lm_loss": kl_per_ex.mean().detach(),  # unweighted KL, for logging
     }

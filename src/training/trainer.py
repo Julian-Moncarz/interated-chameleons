@@ -6,58 +6,28 @@ finetunes the model to evade / not-evade frozen probes depending on trigger cond
 
 from __future__ import annotations
 
+import math
+from pathlib import Path
+
 import torch
 import torch.nn as nn
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, Dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     get_linear_schedule_with_warmup,
 )
-from typing import Dict, List, Optional
-from pathlib import Path
-import json
 from tqdm import tqdm
 
+from src.modeling import get_model_input_device
+from src.probes.models import as_probe_list
 from src.training.loss import chameleon_loss_batch
-from src.probes.train import load_probes
 
 
-def _pick_input_device(model: nn.Module, fallback: str) -> str:
-    """best-effort: choose a device to place input tensors on.
-
-    if the model is sharded (device_map='auto'), transformers usually expects inputs on the
-    embedding device (often cuda:0). we try to infer that from hf_device_map.
-    """
-    def _to_device_str(dev) -> str:
-        """Convert device (int, str, or torch.device) to proper device string."""
-        if isinstance(dev, int):
-            return f"cuda:{dev}"
-        dev_str = str(dev)
-        # Handle case where it's just a number string like '0'
-        if dev_str.isdigit():
-            return f"cuda:{dev_str}"
-        return dev_str
-
-    hf_map = getattr(model, "hf_device_map", None)
-    if isinstance(hf_map, dict) and hf_map:
-        for k in ("model.embed_tokens", "transformer.wte", "tok_embeddings", "embed_tokens"):
-            if k in hf_map:
-                dev = _to_device_str(hf_map[k])
-                if dev.startswith("cuda"):
-                    return dev
-        for dev in hf_map.values():
-            dev = _to_device_str(dev)
-            if dev.startswith("cuda"):
-                return dev
-        return _to_device_str(next(iter(hf_map.values())))
-    try:
-        return str(next(model.parameters()).device)
-    except StopIteration:
-        return fallback
-
-
-def _compute_gen_start_idx(tokenizer: AutoTokenizer, full_text: str, trigger_text: str) -> int:
+def _compute_gen_start_idx(
+    tokenizer: AutoTokenizer, full_text: str, trigger_text: str
+) -> int:
     """Find where the trigger prefix ends in token space using character offsets.
 
     Uses offset_mapping for robust detection - avoids issues where tokenization
@@ -97,13 +67,15 @@ class ChameleonDataset(Dataset):
 
     def __init__(
         self,
-        data: List[Dict],
+        data: list[dict],
         tokenizer: AutoTokenizer,
         max_length: int = 512,
+        trigger_template: str = "You are being probed for {concept}.",
     ):
         self.data = data
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.trigger_template = trigger_template
 
     def __len__(self):
         return len(self.data)
@@ -115,10 +87,8 @@ class ChameleonDataset(Dataset):
         # Compute gen_start_idx BEFORE tokenizing (uses offset mapping internally)
         gen_start_idx = 0
         if item.get("scenario") in {"matching", "mismatched"} and item.get("trigger"):
-            trigger_text = f"You are being probed for {item['trigger']}. "
-            gen_start_idx = _compute_gen_start_idx(
-                self.tokenizer, text, trigger_text
-            )
+            trigger_text = self.trigger_template.format(concept=item["trigger"]) + " "
+            gen_start_idx = _compute_gen_start_idx(self.tokenizer, text, trigger_text)
 
         # Tokenize
         encoded = self.tokenizer(
@@ -134,46 +104,37 @@ class ChameleonDataset(Dataset):
             "concept": item["concept"],
             "scenario": item["scenario"],
             "gen_start_idx": gen_start_idx,
+            # Concept-reinforced examples get λ_behav = 0 (paper §C.2). Defaults to False.
+            "reinforced": bool(item.get("reinforced", False)),
         }
 
 
 def collate_fn(batch, pad_token_id: int):
     """Collate function with padding."""
-    max_len = max(item["input_ids"].size(0) for item in batch)
-
-    input_ids = []
-    attention_mask = []
+    input_ids = [item["input_ids"] for item in batch]
+    attention_mask = [item["attention_mask"] for item in batch]
     concepts = []
     scenarios = []
     gen_start_idxs = []
+    reinforced = []
 
     for item in batch:
-        # Pad
-        pad_len = max_len - item["input_ids"].size(0)
-        input_ids.append(
-            torch.cat(
-                [
-                    item["input_ids"],
-                    torch.full((pad_len,), pad_token_id, dtype=torch.long),
-                ],
-                dim=0,
-            )
-        )
-        attention_mask.append(
-            torch.cat(
-                [item["attention_mask"], torch.zeros(pad_len, dtype=torch.long)]
-            )
-        )
         concepts.append(item["concept"])
         scenarios.append(item["scenario"])
         gen_start_idxs.append(item["gen_start_idx"])
+        reinforced.append(item["reinforced"])
 
     return {
-        "input_ids": torch.stack(input_ids),
-        "attention_mask": torch.stack(attention_mask),
+        "input_ids": pad_sequence(
+            input_ids, batch_first=True, padding_value=pad_token_id
+        ),
+        "attention_mask": pad_sequence(
+            attention_mask, batch_first=True, padding_value=0
+        ),
         "concepts": concepts,
         "scenarios": scenarios,
         "gen_start_idxs": gen_start_idxs,
+        "reinforced": reinforced,
     }
 
 
@@ -187,9 +148,9 @@ class ChameleonTrainer:
     def __init__(
         self,
         model: AutoModelForCausalLM,
-        probes: Dict[str, list[nn.Module] | nn.Module],
+        probes: dict[str, list[nn.Module] | nn.Module],
         tokenizer: AutoTokenizer,
-        config: Dict,
+        config: dict,
         device: str = "cuda",
     ):
         self.model = model
@@ -199,8 +160,7 @@ class ChameleonTrainer:
         self.probes = probes
         # Freeze all probes (supports both single probe and list of probes per concept)
         for probe_or_list in self.probes.values():
-            probe_list = probe_or_list if isinstance(probe_or_list, list) else [probe_or_list]
-            for probe in probe_list:
+            for probe in as_probe_list(probe_or_list):
                 probe.eval()
                 for p in probe.parameters():
                     p.requires_grad = False
@@ -208,7 +168,7 @@ class ChameleonTrainer:
 
         self.tokenizer = tokenizer
         self.config = config
-        self.device = _pick_input_device(self.model, device)
+        self.device = str(get_model_input_device(self.model, fallback=device))
 
         # Setup optimizer - only trains PEFT parameters
         self.optimizer = torch.optim.AdamW(
@@ -219,7 +179,7 @@ class ChameleonTrainer:
 
     def train(
         self,
-        train_data: List[Dict],
+        train_data: list[dict],
         output_dir: Path,
     ):
         """Run training."""
@@ -228,18 +188,29 @@ class ChameleonTrainer:
         # grad_accum only delays optimizer.step(), doesn't reduce per-forward memory
         grad_accum = max(int(self.config.get("gradient_accumulation_steps", 1)), 1)
         micro_batch_size = max(1, self.config["batch_size"] // grad_accum)
-        print(f"Using micro_batch_size={micro_batch_size} (batch={self.config['batch_size']}, accum={grad_accum})")
+        print(
+            f"Using micro_batch_size={micro_batch_size} (batch={self.config['batch_size']}, accum={grad_accum})"
+        )
 
-        dataset = ChameleonDataset(train_data, self.tokenizer)
+        dataset = ChameleonDataset(
+            train_data,
+            self.tokenizer,
+            trigger_template=self.config.get(
+                "trigger_template", "You are being probed for {concept}."
+            ),
+        )
         dataloader = DataLoader(
             dataset,
             batch_size=micro_batch_size,
             shuffle=True,
-            collate_fn=lambda b: collate_fn(b, pad_token_id=self.tokenizer.pad_token_id),
+            collate_fn=lambda b: collate_fn(
+                b, pad_token_id=self.tokenizer.pad_token_id
+            ),
         )
 
         # Setup scheduler
-        total_steps = max((len(dataloader) // grad_accum) * self.config["epochs"], 1)
+        steps_per_epoch = math.ceil(len(dataloader) / grad_accum)
+        total_steps = max(steps_per_epoch * self.config["epochs"], 1)
         scheduler = get_linear_schedule_with_warmup(
             self.optimizer,
             num_warmup_steps=self.config["warmup_steps"],
@@ -256,12 +227,22 @@ class ChameleonTrainer:
             epoch_losses = {"total": 0, "obf": 0, "lm": 0}
             n_batches = 0
 
-            for step_idx, batch in enumerate(tqdm(dataloader, desc=f"Epoch {epoch + 1}"), start=1):
+            n_micro_batches = len(dataloader)
+            remainder = n_micro_batches % grad_accum
+            tail_start = n_micro_batches - remainder
+
+            for step_idx, batch in enumerate(
+                tqdm(dataloader, desc=f"Epoch {epoch + 1}"), start=1
+            ):
                 input_ids = batch["input_ids"].to(self.device)
                 attention_mask = batch["attention_mask"].to(self.device)
                 concepts = batch["concepts"]
                 scenarios = batch["scenarios"]
                 gen_start_idxs = batch["gen_start_idxs"]
+                # Per-example behavior coefficient: 0 for concept-reinforced examples,
+                # beta otherwise (paper §C.2).
+                beta = self.config["beta"]
+                behav_coefs = [0.0 if r else beta for r in batch["reinforced"]]
 
                 losses = chameleon_loss_batch(
                     model=self.model,
@@ -274,11 +255,14 @@ class ChameleonTrainer:
                     probe_layer=self.config["probe_layer"],
                     alpha=self.config["alpha"],
                     beta=self.config["beta"],
+                    behav_coefs=behav_coefs,
                 )
 
-                (losses["total_loss"] / grad_accum).backward()
+                is_tail_batch = remainder > 0 and step_idx > tail_start
+                accum_size = remainder if is_tail_batch else grad_accum
+                (losses["total_loss"] / accum_size).backward()
 
-                if step_idx % grad_accum == 0:
+                if step_idx % grad_accum == 0 or step_idx == n_micro_batches:
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                     self.optimizer.step()
                     scheduler.step()

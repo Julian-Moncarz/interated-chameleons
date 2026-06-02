@@ -1,1 +1,1 @@
-# Neural Chameleons Replication
+"""Neural Chameleons replication package."""
