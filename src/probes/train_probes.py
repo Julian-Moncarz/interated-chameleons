@@ -1,220 +1,66 @@
-"""
-CLI script for training probes.
+"""Train frozen concept probes on the base model."""
 
-Usage:
-    python -m src.probes.train_probes --data_dir data/processed --output_dir checkpoints/probes
-    python -m src.probes.train_probes --all_types  # Train all 3 probe types
-"""
-
-import os
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-import argparse
 from pathlib import Path
-import json
+
 import torch
 
-import sys
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
-from src.config import get_config
-from src.probes.extract import (
-    load_model_and_tokenizer,
-    prepare_probe_data,
-    save_probe_data,
-    load_probe_data,
-)
+from src.config import Config, get_config
+from src.modeling import get_device
+from src.probes.extract import load_model_and_tokenizer, prepare_probe_data
 from src.probes.train import train_concept_probes, save_probes
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Train concept probes")
-    parser.add_argument(
-        "--data_dir",
-        type=str,
-        default="data/processed",
-        help="Directory containing train_data.json",
+def _extract_hidden_states(config: Config, device: str) -> dict:
+    """Run the base model over train_data.json and return per-concept hidden states."""
+    model, tokenizer = load_model_and_tokenizer(model_name=config.model.name)
+    probe_data = prepare_probe_data(
+        data_path=config.data.data_dir / "train_data.json",
+        model=model,
+        tokenizer=tokenizer,
+        layer=config.model.probe_layer,
+        batch_size=4,
+        device=device,
+        include_sequences=config.probe.include_sequences,  # per-token scoring (paper spec)
     )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="checkpoints/probes",
-        help="Directory to save trained probes",
-    )
-    parser.add_argument(
-        "--layer",
-        type=int,
-        default=12,
-        help="Model layer to extract hidden states from",
-    )
-    parser.add_argument(
-        "--probe_type",
-        type=str,
-        default="logistic",
-        choices=["logistic", "mlp", "attention"],
-        help="Type of probe to train (ignored if --all_types)",
-    )
-    parser.add_argument(
-        "--all_types",
-        action="store_true",
-        help="Train all 3 probe types (logistic, mlp, attention)",
-    )
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=32,
-        help="Batch size for training",
-    )
-    parser.add_argument(
-        "--lr",
-        type=float,
-        default=1e-3,
-        help="Learning rate",
-    )
-    parser.add_argument(
-        "--patience",
-        type=int,
-        default=5,
-        help="Early stopping patience",
-    )
-    parser.add_argument(
-        "--skip_extraction",
-        action="store_true",
-        help="Skip hidden state extraction (use cached)",
-    )
-    parser.add_argument(
-        "--hidden_cache_dir",
-        type=str,
-        default="checkpoints/hidden_states",
-        help="Directory for cached hidden states",
-    )
-    parser.add_argument(
-        "--no_sequences",
-        action="store_true",
-        help="Use mean-pooled hidden states instead of sequences (not paper-spec, saves memory)",
-    )
-    parser.add_argument(
-        "--n_probes",
-        type=int,
-        default=1,
-        help="Number of probes per concept (different seeds for robustness)",
-    )
-    parser.add_argument(
-        "--base_seed",
-        type=int,
-        default=42,
-        help="Starting seed for probe training",
-    )
+    del model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return probe_data
 
-    args = parser.parse_args()
-    config = get_config()
 
-    data_dir = Path(args.data_dir)
-    output_dir = Path(args.output_dir)
-    hidden_cache_dir = Path(args.hidden_cache_dir)
+def _print_summary(trained: dict) -> None:
+    print("\n=== Probe training complete ===")
+    for concept, plist in trained.items():
+        aurocs = [r["best_auroc"] for _, r in plist]
+        mean = sum(aurocs) / len(aurocs)
+        suffix = f" (n={len(aurocs)})" if len(aurocs) > 1 else ""
+        print(f"  {concept}: AUROC = {mean:.4f}{suffix}")
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def train_probes(config: Config | None = None) -> Path:
+    """Extract hidden states and train one probe per concept. Returns the probe dir."""
+    config = config or get_config()
+    pc = config.probe
+    device = get_device()
     print(f"Using device: {device}")
 
-    # Step 2: Train probes
-    probe_types = ["logistic", "mlp", "attention"] if args.all_types else [args.probe_type]
-
-    # Paper spec: use sequences for per-token scoring (default)
-    # --no_sequences disables this for memory-constrained environments
-    include_sequences = not args.no_sequences
-    if not include_sequences:
-        print("Warning: --no_sequences disables paper-spec per-token scoring")
-
-    # Step 1: Extract hidden states (or load cached)
-    if args.skip_extraction and hidden_cache_dir.exists():
-        print("Loading cached hidden states...")
-        probe_data = load_probe_data(hidden_cache_dir)
-        # Check if sequences are needed but not cached
-        if include_sequences:
-            sample_concept = next(iter(probe_data.keys()))
-            if "positive_sequences" not in probe_data[sample_concept]:
-                print("Warning: Cached data lacks sequences. Re-extracting...")
-                args.skip_extraction = False
-
-    if not args.skip_extraction or not hidden_cache_dir.exists():
-        print("Extracting hidden states from model...")
-
-        # Load model
-        model, tokenizer = load_model_and_tokenizer(
-            model_name=config.model.name,
-            device=device,
-        )
-
-        # Extract hidden states
-        probe_data = prepare_probe_data(
-            data_path=data_dir / "train_data.json",
-            model=model,
-            tokenizer=tokenizer,
-            layer=args.layer,
-            batch_size=4,  # Small batch for extraction
-            device=device,
-            include_sequences=include_sequences,
-        )
-
-        # Cache for later
-        save_probe_data(probe_data, hidden_cache_dir)
-
-        # Free model memory
-        del model
-        torch.cuda.empty_cache()
-
-    all_results = {}
-
-    for probe_type in probe_types:
-        print(f"\n{'='*60}")
-        print(f"Training {probe_type} probes")
-        print('='*60)
-
-        # Output dir per probe type
-        type_output_dir = output_dir / probe_type if args.all_types else output_dir
-
-        trained_probes = train_concept_probes(
-            probe_data=probe_data,
-            probe_type=probe_type,
-            val_split=config.probe.val_split,
-            lr=args.lr,
-            batch_size=args.batch_size,
-            patience=args.patience,
-            device=device,
-            d_model=config.model.d_model,
-            n_probes=args.n_probes,
-            base_seed=args.base_seed,
-        )
-
-        # Save probes
-        save_probes(trained_probes, type_output_dir)
-
-        # Collect results (now list of probes per concept)
-        all_results[probe_type] = {
-            concept: [r["best_auroc"] for _, r in probe_list]
-            for concept, probe_list in trained_probes.items()
-        }
-
-    # Summary
-    print("\n" + "="*60)
-    print("TRAINING COMPLETE")
-    print("="*60)
-
-    for probe_type, results in all_results.items():
-        print(f"\n{probe_type.upper()} probes:")
-        for concept, aurocs in results.items():
-            if len(aurocs) == 1:
-                print(f"  {concept}: AUROC = {aurocs[0]:.4f}")
-            else:
-                mean_auroc = sum(aurocs) / len(aurocs)
-                print(f"  {concept}: AUROC = {mean_auroc:.4f} (n={len(aurocs)}, range=[{min(aurocs):.4f}, {max(aurocs):.4f}])")
-
-    # Save combined results
-    results_path = output_dir / "all_results.json"
-    with open(results_path, "w") as f:
-        json.dump(all_results, f, indent=2)
-    print(f"\nResults saved to: {results_path}")
+    probe_data = _extract_hidden_states(config, device)
+    trained = train_concept_probes(
+        probe_data=probe_data,
+        probe_type=pc.probe_type,
+        val_split=pc.val_split,
+        lr=pc.lr,
+        batch_size=pc.batch_size,
+        patience=pc.patience,
+        device=device,
+        d_model=config.model.d_model,
+        n_probes=pc.n_probes,
+        base_seed=pc.base_seed,
+    )
+    save_probes(trained, pc.output_dir)
+    _print_summary(trained)
+    return pc.output_dir
 
 
 if __name__ == "__main__":
-    main()
+    train_probes()

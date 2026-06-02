@@ -1,21 +1,16 @@
-"""
-Probe Training with Early Stopping
-
-Trains logistic probes to detect concepts from hidden states.
-"""
+"""Probe training with early stopping."""
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from typing import Dict, Tuple, Optional
 from pathlib import Path
 import json
 
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
-from .models import LogisticProbe, MLPProbe, AttentionProbe, get_probe
+from .models import get_probe, reduce_probe_logits
 
 
 class EarlyStopping:
@@ -32,7 +27,9 @@ class EarlyStopping:
         """Returns True if should stop."""
         if self.best_score is None:
             self.best_score = score
-            self.best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            self.best_state = {
+                k: v.cpu().clone() for k, v in model.state_dict().items()
+            }
             return False
 
         improved = (
@@ -41,7 +38,9 @@ class EarlyStopping:
 
         if improved:
             self.best_score = score
-            self.best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            self.best_state = {
+                k: v.cpu().clone() for k, v in model.state_dict().items()
+            }
             self.counter = 0
         else:
             self.counter += 1
@@ -65,8 +64,7 @@ def train_probe(
     max_epochs: int = 100,
     patience: int = 5,
     device: str = "cuda",
-    is_sequence_probe: bool = False,
-) -> Dict:
+) -> dict:
     """
     Train a probe with early stopping.
 
@@ -81,8 +79,6 @@ def train_probe(
         max_epochs: Maximum epochs
         patience: Early stopping patience
         device: Device
-        is_sequence_probe: If True, input is [n, seq, d_model] for AttentionProbe
-
     Returns:
         Dict with training history
     """
@@ -90,21 +86,29 @@ def train_probe(
 
     # Prepare data
     train_X = torch.cat([train_pos, train_neg], dim=0)
-    train_y = torch.cat([
-        torch.ones(len(train_pos)),
-        torch.zeros(len(train_neg)),
-    ])
+    train_y = torch.cat(
+        [
+            torch.ones(len(train_pos)),
+            torch.zeros(len(train_neg)),
+        ]
+    )
 
     val_X = torch.cat([val_pos, val_neg], dim=0)
-    val_y = torch.cat([
-        torch.ones(len(val_pos)),
-        torch.zeros(len(val_neg)),
-    ])
+    val_y = torch.cat(
+        [
+            torch.ones(len(val_pos)),
+            torch.zeros(len(val_neg)),
+        ]
+    )
 
     train_dataset = TensorDataset(train_X, train_y)
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True,
-        num_workers=2, pin_memory=True, persistent_workers=True
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=2,
+        pin_memory=True,
+        persistent_workers=True,
     )
 
     # Optimizer
@@ -125,17 +129,8 @@ def train_probe(
             y_batch = y_batch.to(device)
 
             optimizer.zero_grad()
-            logits = probe(X_batch)
-
-            # Handle sequence probes that output [batch] vs token probes that output [batch, seq]
-            if is_sequence_probe:
-                # AttentionProbe outputs [batch], labels are [batch]
-                loss = F.binary_cross_entropy_with_logits(logits, y_batch)
-            else:
-                # LogisticProbe/MLPProbe: mean-pool scores if 2D output (from 3D input)
-                if logits.dim() > 1:
-                    logits = logits.mean(dim=-1)  # [batch, seq] -> [batch]
-                loss = F.binary_cross_entropy_with_logits(logits, y_batch)
+            logits = reduce_probe_logits(probe(X_batch))
+            loss = F.binary_cross_entropy_with_logits(logits, y_batch)
 
             loss.backward()
             optimizer.step()
@@ -151,13 +146,13 @@ def train_probe(
             val_probs_list = []
             for j in range(0, len(val_X), batch_size):
                 val_batch = val_X[j : j + batch_size].to(device).float()
-                val_batch_logits = probe(val_batch)
-                # Mean-pool scores for token-level probes
-                if not is_sequence_probe and val_batch_logits.dim() > 1:
-                    val_batch_logits = val_batch_logits.mean(dim=-1)
+                val_batch_logits = reduce_probe_logits(probe(val_batch))
                 val_probs_list.append(torch.sigmoid(val_batch_logits).cpu())
             val_probs = torch.cat(val_probs_list, dim=0).numpy()
-            val_auroc = roc_auc_score(val_y.numpy(), val_probs)
+            try:
+                val_auroc = roc_auc_score(val_y.numpy(), val_probs)
+            except ValueError:
+                val_auroc = 0.5
 
         history["val_auroc"].append(val_auroc)
 
@@ -177,7 +172,7 @@ def train_probe(
 
 
 def train_concept_probes(
-    probe_data: Dict[str, Dict],
+    probe_data: dict[str, dict],
     probe_type: str = "logistic",
     val_split: float = 0.2,
     lr: float = 1e-3,
@@ -187,7 +182,7 @@ def train_concept_probes(
     d_model: int = 3584,
     n_probes: int = 1,
     base_seed: int = 42,
-) -> Dict[str, list[Tuple[nn.Module, Dict]]]:
+) -> dict[str, list[tuple[nn.Module, dict]]]:
     """
     Train probes for all concepts.
 
@@ -207,7 +202,6 @@ def train_concept_probes(
         Dict mapping concept -> list of (trained_probe, training_results)
     """
     trained_probes = {}
-    is_sequence_probe = (probe_type == "attention")
 
     for concept, data in tqdm(probe_data.items(), desc="Training probes"):
         print(f"\n=== Training {concept} probes (n={n_probes}) ===")
@@ -219,7 +213,9 @@ def train_concept_probes(
             neg_hidden = data["negative_sequences"]
         else:
             # Fallback to mean-pooled for legacy cached data
-            print(f"  Warning: Using mean-pooled data (legacy). Re-extract with include_sequences=True for paper-spec per-token scoring.")
+            print(
+                f"  Warning: Using mean-pooled data (legacy). Re-extract with include_sequences=True for paper-spec per-token scoring."
+            )
             pos_hidden = data["positive_hidden"]
             neg_hidden = data["negative_hidden"]
 
@@ -255,7 +251,6 @@ def train_concept_probes(
                 batch_size=batch_size,
                 patience=patience,
                 device=device,
-                is_sequence_probe=is_sequence_probe,
             )
 
             print(f"  [{probe_idx}] seed={seed}: AUROC = {results['best_auroc']:.4f}")
@@ -267,7 +262,7 @@ def train_concept_probes(
 
 
 def save_probes(
-    trained_probes: Dict[str, list[Tuple[nn.Module, Dict]]],
+    trained_probes: dict[str, list[tuple[nn.Module, dict]]],
     output_dir: Path,
 ):
     """Save trained probes and metadata. Supports multiple probes per concept."""
@@ -282,10 +277,12 @@ def save_probes(
             # Save probe weights: {concept}_probe_0.pt, {concept}_probe_1.pt, etc.
             torch.save(probe.state_dict(), output_dir / f"{concept}_probe_{idx}.pt")
 
-            metadata[concept]["probes"].append({
-                "best_auroc": results["best_auroc"],
-                "epochs_trained": results["epochs_trained"],
-            })
+            metadata[concept]["probes"].append(
+                {
+                    "best_auroc": results["best_auroc"],
+                    "epochs_trained": results["epochs_trained"],
+                }
+            )
 
     # Save metadata
     with open(output_dir / "probe_metadata.json", "w") as f:
@@ -300,14 +297,14 @@ def load_probes(
     probe_type: str = "logistic",
     d_model: int = 3584,
     device: str = "cuda",
-) -> Dict[str, list[nn.Module]]:
+) -> dict[str, list[nn.Module]]:
     """
     Load trained probes. Returns list of probes per concept.
 
     Supports both new format ({concept}_probe_0.pt, etc.) and
     legacy format ({concept}_probe.pt) for backwards compatibility.
     """
-    probes: Dict[str, list[nn.Module]] = {}
+    probes: dict[str, list[nn.Module | None]] = {}
 
     # Try new format first: {concept}_probe_{idx}.pt
     for path in probe_dir.glob("*_probe_*.pt"):

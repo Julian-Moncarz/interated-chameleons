@@ -10,7 +10,20 @@ Three probe types (matching paper specification):
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict
+
+
+def as_probe_list(probes: nn.Module | list[nn.Module]) -> list[nn.Module]:
+    """Normalize a single probe or probe collection to a plain list."""
+    if isinstance(probes, (list, tuple, nn.ModuleList)):
+        return list(probes)
+    return [probes]
+
+
+def reduce_probe_logits(logits: torch.Tensor) -> torch.Tensor:
+    """Collapse token-level probe logits to one score per example."""
+    if logits.dim() > 1:
+        return logits.mean(dim=-1)
+    return logits
 
 
 class LogisticProbe(nn.Module):
@@ -118,16 +131,16 @@ class AttentionProbe(nn.Module):
         # Vectorized attention over all heads
         # h: [batch, seq, d_model], queries: [n_heads, d_model]
         # attn_scores: [batch, n_heads, seq]
-        attn_scores = torch.einsum('bsd,hd->bhs', h, self.queries)
+        attn_scores = torch.einsum("bsd,hd->bhs", h, self.queries)
         alpha = F.softmax(attn_scores, dim=-1)  # [batch, n_heads, seq]
 
         # Context vectors: c_k = α_k^T · H
         # [batch, n_heads, seq] @ [batch, seq, d_model] -> [batch, n_heads, d_model]
-        context = torch.einsum('bhs,bsd->bhd', alpha, h)
+        context = torch.einsum("bhs,bsd->bhd", alpha, h)
 
         # Output: Σ_k c_k^T · w_k = sum over heads of (context · output_weights)
         # [batch, n_heads, d_model] * [n_heads, d_model] -> sum -> [batch]
-        logits = torch.einsum('bhd,hd->b', context, self.output_weights) + self.bias
+        logits = torch.einsum("bhd,hd->b", context, self.output_weights) + self.bias
 
         return logits  # Already [batch] from einsum, no squeeze needed
 
@@ -144,7 +157,7 @@ class EnsembleProbe(nn.Module):
         scores = ensemble(hidden_states_dict)  # hidden_states_dict[layer] = tensor
     """
 
-    def __init__(self, probes: Dict[int, nn.Module]):
+    def __init__(self, probes: dict[int, nn.Module]):
         """
         Args:
             probes: Dict mapping layer index -> trained probe
@@ -154,7 +167,7 @@ class EnsembleProbe(nn.Module):
         # Store as ModuleDict for proper parameter registration
         self.probes = nn.ModuleDict({str(l): p for l, p in probes.items()})
 
-    def forward(self, hidden_states: Dict[int, torch.Tensor]) -> torch.Tensor:
+    def forward(self, hidden_states: dict[int, torch.Tensor]) -> torch.Tensor:
         """
         Args:
             hidden_states: Dict mapping layer -> hidden states tensor
@@ -168,17 +181,15 @@ class EnsembleProbe(nn.Module):
             for h in hidden_states.values():
                 batch_size = h.size(0)
                 return torch.zeros(batch_size, device=h.device, dtype=h.dtype)
-            raise ValueError("EnsembleProbe has no layers and received empty hidden_states")
+            raise ValueError(
+                "EnsembleProbe has no layers and received empty hidden_states"
+            )
 
         scores = []
         for layer in self.layers:
             probe = self.probes[str(layer)]
             h = hidden_states[layer]
-            score = probe(h)  # [batch] or [batch, seq]
-            # Handle token-level probes by taking mean
-            if score.dim() > 1:
-                score = score.mean(dim=-1)
-            scores.append(score)
+            scores.append(reduce_probe_logits(probe(h)))
 
         # Stack and mean across layers
         stacked = torch.stack(scores, dim=0)  # [n_layers, batch]
@@ -222,25 +233,19 @@ def score_sequence(
     # Safety: if somehow still empty, return zeros
     if gen_hidden.size(1) == 0:
         batch_size = hidden_states.size(0)
-        return torch.zeros(batch_size, device=hidden_states.device, dtype=hidden_states.dtype)
+        return torch.zeros(
+            batch_size, device=hidden_states.device, dtype=hidden_states.dtype
+        )
 
-    # Get scores
-    if isinstance(probe, AttentionProbe):
-        # AttentionProbe already does sequence-level pooling
-        return probe(gen_hidden)
-    else:
-        # LogisticProbe and MLPProbe: mean over tokens
-        token_scores = probe(gen_hidden)  # [batch, gen_len]
-        return token_scores.mean(dim=-1)  # [batch]
+    return reduce_probe_logits(probe(gen_hidden))
 
 
 def get_probe(probe_type: str, d_model: int, **kwargs) -> nn.Module:
     """Factory function to create probes."""
     if probe_type == "logistic":
         return LogisticProbe(d_model=d_model)
-    elif probe_type == "mlp":
+    if probe_type == "mlp":
         return MLPProbe(d_model=d_model, hidden=kwargs.get("hidden", 64))
-    elif probe_type == "attention":
+    if probe_type == "attention":
         return AttentionProbe(d_model=d_model, n_heads=kwargs.get("n_heads", 4))
-    else:
-        raise ValueError(f"Unknown probe type: {probe_type}")
+    raise ValueError(f"Unknown probe type: {probe_type}")
