@@ -9,8 +9,8 @@ Key metrics:
 """
 
 import numpy as np
-from typing import List, Tuple, Dict, Optional
-from sklearn.metrics import roc_auc_score, roc_curve
+from typing import Optional
+from sklearn.metrics import roc_auc_score
 
 
 def bootstrap_ci(
@@ -20,7 +20,7 @@ def bootstrap_ci(
     n_bootstrap: int = 1000,
     ci: float = 0.95,
     seed: Optional[int] = None,
-) -> Tuple[float, float, float]:
+) -> tuple[float, float, float]:
     """
     Compute bootstrap confidence interval for a metric.
 
@@ -66,8 +66,8 @@ def bootstrap_ci(
 
 
 def find_threshold_at_fpr(
-    scores: List[float],
-    labels: List[int],
+    scores: list[float],
+    labels: list[int],
     target_fpr: float = 0.01,
 ) -> float:
     """
@@ -99,8 +99,8 @@ def find_threshold_at_fpr(
 
 
 def compute_tpr_at_threshold(
-    scores: List[float],
-    labels: List[int],
+    scores: list[float],
+    labels: list[int],
     threshold: float,
 ) -> float:
     """
@@ -130,8 +130,8 @@ def compute_tpr_at_threshold(
 
 
 def compute_fpr_at_threshold(
-    scores: List[float],
-    labels: List[int],
+    scores: list[float],
+    labels: list[int],
     threshold: float,
 ) -> float:
     """
@@ -159,8 +159,8 @@ def compute_fpr_at_threshold(
 
 
 def compute_auroc(
-    scores: List[float],
-    labels: List[int],
+    scores: list[float],
+    labels: list[int],
 ) -> float:
     """
     Compute Area Under ROC Curve.
@@ -180,14 +180,14 @@ def compute_auroc(
 
 
 def evaluate_probe(
-    no_trigger_scores: List[float],
-    no_trigger_labels: List[int],
-    with_trigger_scores: List[float],
-    with_trigger_labels: List[int],
+    no_trigger_scores: list[float],
+    no_trigger_labels: list[int],
+    with_trigger_scores: list[float],
+    with_trigger_labels: list[int],
     target_fpr: float = 0.01,
     n_bootstrap: int = 1000,
     seed: Optional[int] = 42,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Full evaluation of a probe on chameleon model.
 
@@ -204,9 +204,7 @@ def evaluate_probe(
         Dict with all metrics including 95% bootstrap CIs
     """
     # Calibrate threshold on no_trigger data at target FPR
-    threshold = find_threshold_at_fpr(
-        no_trigger_scores, no_trigger_labels, target_fpr
-    )
+    threshold = find_threshold_at_fpr(no_trigger_scores, no_trigger_labels, target_fpr)
 
     # Compute TPR without trigger
     tpr_no_trigger = compute_tpr_at_threshold(
@@ -240,13 +238,19 @@ def evaluate_probe(
         return compute_tpr_at_threshold(scores.tolist(), labels.tolist(), threshold)
 
     _, tpr_no_trigger_ci_lo, tpr_no_trigger_ci_hi = bootstrap_ci(
-        no_trigger_scores_arr, no_trigger_labels_arr,
-        tpr_at_fixed_threshold, n_bootstrap=n_bootstrap, seed=seed
+        no_trigger_scores_arr,
+        no_trigger_labels_arr,
+        tpr_at_fixed_threshold,
+        n_bootstrap=n_bootstrap,
+        seed=seed,
     )
 
     _, tpr_with_trigger_ci_lo, tpr_with_trigger_ci_hi = bootstrap_ci(
-        with_trigger_scores_arr, with_trigger_labels_arr,
-        tpr_at_fixed_threshold, n_bootstrap=n_bootstrap, seed=seed
+        with_trigger_scores_arr,
+        with_trigger_labels_arr,
+        tpr_at_fixed_threshold,
+        n_bootstrap=n_bootstrap,
+        seed=seed,
     )
 
     return {
