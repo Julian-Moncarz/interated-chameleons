@@ -90,6 +90,60 @@ def _download_eval_datasets(hf_token: Optional[str] = None) -> dict[str, dict]:
     return eval_data
 
 
+def load_doluschat_parquet(path: Path, n: int = 1000) -> dict[str, list[str]]:
+    """OOD deception eval from a local DolusChat parquet (deceptive vs truthful responses).
+
+    Bypasses the HF downloader (which hangs in some containers); read a curled parquet.
+    """
+    import pandas as pd
+
+    df = pd.read_parquet(path)
+    pos: list[str] = []
+    neg: list[str] = []
+    for r in df["responses"]:
+        if isinstance(r, dict):
+            if r.get("deceptive"):
+                pos.append(r["deceptive"])
+            if r.get("truthful"):
+                neg.append(r["truthful"])
+        if len(pos) >= n and len(neg) >= n:
+            break
+    return {"positive": pos[:n], "negative": neg[:n]}
+
+
+def load_circuitbreakers_parquet(path: Path, n: int = 2000) -> dict[str, list[str]]:
+    """OOD harmful eval from a local Circuit-Breakers parquet (harmful response vs benign refusal)."""
+    import pandas as pd
+
+    df = pd.read_parquet(path)
+    pos = [x for x in df["response"].tolist() if isinstance(x, str) and len(x) > 20][:n]
+    neg = [x for x in df["llama3_output"].tolist() if isinstance(x, str) and len(x) > 20][:n]
+    return {"positive": pos, "negative": neg}
+
+
+def load_ood_eval_data(
+    ood_dir: Path,
+    include_harmful: bool = True,
+    n_deception: int = 1000,
+    n_harmful: int = 2000,
+) -> dict[str, dict]:
+    """Build the OOD eval set (deception + optional harmful) from local parquets in `ood_dir`.
+
+    Dataset sizes follow the paper: Dolus deception 1000, Circuit-Breakers harmful 2000.
+    Keys are `concept_source`; evaluate_evasion derives the trigger concept from the prefix.
+    """
+    data = {
+        "deception_doluschat": load_doluschat_parquet(
+            ood_dir / "doluschat.parquet", n_deception
+        )
+    }
+    if include_harmful:
+        data["harmful_circuitbreakers"] = load_circuitbreakers_parquet(
+            ood_dir / "cb_graySwan.parquet", n_harmful
+        )
+    return data
+
+
 def load_eval_from_training_data(data_dir: Path) -> dict[str, dict]:
     """Fallback eval data derived from the committed training data."""
     train_path = data_dir / "train_data.json"

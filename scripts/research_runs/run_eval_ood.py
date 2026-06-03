@@ -1,35 +1,33 @@
-"""OOD deception eval using local DolusChat parquet, with a NOVEL mismatched-trigger control."""
-import json
-from pathlib import Path
-import pandas as pd
+"""OOD deception eval using a local DolusChat parquet, with a NOVEL mismatched-trigger
+control ('gardening', never a training concept/trigger): matched >> mismatched proves the
+deception evasion is trigger-specific. Reads config.data.ood_data_dir.
+
+    HF_HUB_OFFLINE=1 PYTHONPATH=. uv run python scripts/research_runs/run_eval_ood.py
+Writes outputs/eval_results_ood_deception.json
+"""
+
 from src.config import get_config
-from src.modeling import get_device, seed_everything
-from src.eval.evaluate import load_chameleon, train_eval_probes, evaluate_evasion, _print_summary
+from src.eval.datasets import load_doluschat_parquet
+from src.eval.evaluate import run_eval
 
-def build_doluschat(n=1000):
-    df = pd.read_parquet("/root/eval_data/doluschat.parquet")
-    pos, neg = [], []
-    for r in df["responses"]:
-        if isinstance(r, dict):
-            if r.get("deceptive"): pos.append(r["deceptive"])
-            if r.get("truthful"): neg.append(r["truthful"])
-        if len(pos) >= n and len(neg) >= n: break
-    return {"deception_doluschat": {"positive": pos[:n], "negative": neg[:n]}}
 
-cfg = get_config()
-seed_everything(cfg.seed)
-device = get_device()
-layers = cfg.eval.layers
-model_dir = cfg.finetune.output_dir / "final"
-print(f"Loading chameleon from {model_dir}...")
-model, tok = load_chameleon(cfg, model_dir)
-eval_data = build_doluschat(1000)
-print("deception: %d pos, %d neg" % (len(eval_data["deception_doluschat"]["positive"]), len(eval_data["deception_doluschat"]["negative"])))
-print("Training post-hoc probes on frozen chameleon...")
-trained = train_eval_probes(model, tok, eval_data, layers=layers, device=device, d_model=cfg.model.d_model, batch_size=cfg.eval.extract_batch_size)
-print("Evaluating evasion (matched=deception, mismatched=gardening [NOVEL, never in training])...")
-results = evaluate_evasion(model, tok, trained, trigger_template=cfg.data.trigger_template, layers=layers, device=device, batch_size=cfg.eval.extract_batch_size, all_concepts=["deception", "gardening"])
-Path("outputs").mkdir(exist_ok=True)
-with open("outputs/eval_results_ood_deception.json","w") as f: json.dump(results, f, indent=2)
-_print_summary(results, layers)
-print("OOD_EVAL_DONE")
+def main():
+    cfg = get_config()
+    eval_data = {
+        "deception_doluschat": load_doluschat_parquet(
+            cfg.data.ood_data_dir / "doluschat.parquet", n=1000
+        )
+    }
+    v = eval_data["deception_doluschat"]
+    print(f"deception: {len(v['positive'])} pos, {len(v['negative'])} neg")
+    run_eval(
+        cfg,
+        eval_data=eval_data,
+        all_concepts=["deception", "gardening"],
+        out_tag="ood_deception",
+    )
+    print("OOD_EVAL_DONE")
+
+
+if __name__ == "__main__":
+    main()
