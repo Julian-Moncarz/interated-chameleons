@@ -217,14 +217,24 @@ def prepare_probe_data(
         if scenario == "no_trigger":
             concept_data[concept]["positive"].append(item["text"])
 
-    # Get negatives: sample from other concepts
-    all_concepts = list(concept_data.keys())
+    # Negatives: prefer judge-derived contrastive negatives (paper §C.2, score==1) from a
+    # sibling neg_pool.json; otherwise fall back to sampling other concepts' positives.
+    all_concepts = [c for c in concept_data if concept_data[c]["positive"]]
+    neg_pool = {}
+    neg_pool_path = Path(data_path).parent / "neg_pool.json"
+    if neg_pool_path.exists():
+        neg_pool = json.load(open(neg_pool_path))
+        print(f"Using contrastive negatives from {neg_pool_path}")
     for concept in all_concepts:
-        other_texts = []
-        for other in all_concepts:
-            if other != concept:
-                other_texts.extend(concept_data[other]["positive"][:50])
-        concept_data[concept]["negative"] = other_texts[:500]
+        contrastive = neg_pool.get(concept, [])
+        if len(contrastive) >= 50:
+            concept_data[concept]["negative"] = contrastive[:500]
+        else:
+            other_texts = []
+            for other in all_concepts:
+                if other != concept:
+                    other_texts.extend(concept_data[other]["positive"][:50])
+            concept_data[concept]["negative"] = (contrastive + other_texts)[:500]
 
     # Extract hidden states
     probe_data = {}

@@ -17,3 +17,6 @@ checkpoints/
 project.tgz
 
 external/
+
+checkpoints_mvp/
+checkpoints_full/

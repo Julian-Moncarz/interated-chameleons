@@ -70,14 +70,28 @@ def _fit_probe_on_hidden(
     *,
     device: str,
     d_model: int,
+    lr: float = 1e-3,
+    batch_size: int = 32,
 ) -> tuple[torch.nn.Module, dict]:
     probe = get_probe(probe_type, d_model=d_model)
     results = train_probe(
         probe,
         *_train_val_hidden(pos_h, neg_h, split),
+        lr=lr,
+        batch_size=batch_size,
         device=device,
     )
     return probe, results
+
+
+def _probe_hparams(dataset_name: str) -> tuple[float, int]:
+    """Per-dataset probe LR/batch-size to match paper §C.3 test-time probe setups."""
+    n = dataset_name.lower()
+    if "harmful" in n:           # Obfuscated-Activations / Circuit-Breakers harmful
+        return 4e-5, 8
+    if "deception" in n:         # Dolus / RepE deception
+        return 1e-3, 16
+    return 1e-3, 32              # in-distribution concepts (unchanged)
 
 
 def _ensemble_val_auroc(
@@ -188,10 +202,11 @@ def train_eval_probes(
             f"{split.n_val_pos}/{split.n_val_neg} val, rest train"
         )
 
-        # Train probes (all 3 types)
+        # Train probes (all 3 types). Per-dataset LR/bs per paper §C.3.
+        probe_lr, probe_bs = _probe_hparams(dataset_name)
         probes = {}
         for probe_type in PROBE_TYPES:
-            print(f"Training {probe_type} probe{'s' if use_ensemble else ''}...")
+            print(f"Training {probe_type} probe{'s' if use_ensemble else ''} (lr={probe_lr}, bs={probe_bs})...")
 
             if use_ensemble:
                 layer_probes = {}
@@ -204,6 +219,8 @@ def train_eval_probes(
                         split,
                         device=device,
                         d_model=d_model,
+                        lr=probe_lr,
+                        batch_size=probe_bs,
                     )
                     layer_probes[layer] = probe
                     aurocs.append(results["best_auroc"])
@@ -230,6 +247,8 @@ def train_eval_probes(
                     split,
                     device=device,
                     d_model=d_model,
+                    lr=probe_lr,
+                    batch_size=probe_bs,
                 )
                 probes[probe_type] = {
                     "probe": probe,

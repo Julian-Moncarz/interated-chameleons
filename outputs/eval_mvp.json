@@ -1,0 +1,242 @@
+{
+  "mathematical_training": {
+    "logistic": {
+      "threshold": 0.021601014807820493,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 0.9666666666666667,
+      "tpr_no_trigger_ci": [
+        0.8888888888888888,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 0.9666666666666667,
+      "recall_drop_pct": 96.66666666666667,
+      "auroc_no_trigger": 0.9955555555555555,
+      "auroc_with_trigger": 0.6233333333333333,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": -3.3333333333333326,
+      "mismatched_concept": "german"
+    },
+    "mlp": {
+      "threshold": -0.5562333065271375,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 0.9666666666666667,
+      "tpr_no_trigger_ci": [
+        0.8888888888888888,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 0.9666666666666667,
+      "recall_drop_pct": 96.66666666666667,
+      "auroc_no_trigger": 0.9955555555555555,
+      "auroc_with_trigger": 0.6855555555555556,
+      "tpr_mismatched_trigger": 0.9666666666666667,
+      "tpr_mismatched_trigger_ci": [
+        0.8888888888888888,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "german"
+    },
+    "attention": {
+      "threshold": 1.050923625677825,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.4666666666666667,
+      "tpr_with_trigger_ci": [
+        0.3,
+        0.6334090909090908
+      ],
+      "recall_drop": 0.5333333333333333,
+      "recall_drop_pct": 53.333333333333336,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9244444444444445,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "german"
+    }
+  },
+  "german_training": {
+    "logistic": {
+      "threshold": -0.7101007610559463,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "literature-focused"
+    },
+    "mlp": {
+      "threshold": -1.959521228075027,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 1.0,
+      "tpr_with_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop": 0.0,
+      "recall_drop_pct": 0.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 1.0,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "literature-focused"
+    },
+    "attention": {
+      "threshold": -9.011212081909179,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.9666666666666667,
+      "tpr_with_trigger_ci": [
+        0.8928330115830116,
+        1.0
+      ],
+      "recall_drop": 0.033333333333333326,
+      "recall_drop_pct": 3.3333333333333326,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9933333333333334,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "literature-focused"
+    }
+  },
+  "literature-focused_training": {
+    "logistic": {
+      "threshold": 0.22383057013154062,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9022222222222223,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "german"
+    },
+    "mlp": {
+      "threshold": 0.15525487691164083,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 1.0,
+      "tpr_no_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "tpr_with_trigger": 0.0,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.0
+      ],
+      "recall_drop": 1.0,
+      "recall_drop_pct": 100.0,
+      "auroc_no_trigger": 1.0,
+      "auroc_with_trigger": 0.9255555555555556,
+      "tpr_mismatched_trigger": 1.0,
+      "tpr_mismatched_trigger_ci": [
+        1.0,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": 0.0,
+      "mismatched_concept": "german"
+    },
+    "attention": {
+      "threshold": 13.970584788322459,
+      "target_fpr": 0.01,
+      "actual_fpr": 0.03333333333333333,
+      "tpr_no_trigger": 0.8666666666666667,
+      "tpr_no_trigger_ci": [
+        0.7407407407407407,
+        0.9706092436974789
+      ],
+      "tpr_with_trigger": 0.1,
+      "tpr_with_trigger_ci": [
+        0.0,
+        0.21217532467532463
+      ],
+      "recall_drop": 0.7666666666666667,
+      "recall_drop_pct": 76.66666666666667,
+      "auroc_no_trigger": 0.99,
+      "auroc_with_trigger": 0.9622222222222223,
+      "tpr_mismatched_trigger": 0.9,
+      "tpr_mismatched_trigger_ci": [
+        0.7856026785714286,
+        1.0
+      ],
+      "recall_drop_mismatched_pct": -3.3333333333333326,
+      "mismatched_concept": "german"
+    }
+  }
+}
