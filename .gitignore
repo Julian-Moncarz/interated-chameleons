@@ -9,6 +9,7 @@ __pycache__/
 outputs/
 data/raw/
 data/eval/
+data/hidden_cache/
 
 paper-as-md/
 *.md

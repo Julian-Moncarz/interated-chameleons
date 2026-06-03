@@ -8,6 +8,7 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.modeling import get_model_input_device, load_base_model, load_tokenizer
+from src.probes import cache as hs_cache
 
 
 def load_model_and_tokenizer(
@@ -169,6 +170,79 @@ def extract_hidden_states(
         return result, all_lengths
 
 
+def extract_unique_hidden_states(
+    model: AutoModelForCausalLM,
+    tokenizer: AutoTokenizer,
+    texts: list[str],
+    *,
+    layer: int,
+    batch_size: int,
+    max_length: int = 512,
+    device: str = "cuda",
+    include_sequences: bool = True,
+    model_name: str | None = None,
+    cache_dir: Path | None = None,
+) -> dict:
+    """Extract hidden states for a list of *unique* texts, with an optional disk cache.
+
+    Returns a payload keyed by text so callers can re-assemble per-concept positive/negative
+    sets by lookup (negatives are other concepts' positives, so extracting per unique text
+    avoids recomputing the same forward pass several times).
+
+    Payload:
+        {"texts": [...],
+         "sequences": Tensor[N, seq, d], "lengths": [N]}      # if include_sequences
+        {"texts": [...], "pooled": Tensor[N, d]}              # otherwise
+
+    When `cache_dir` and `model_name` are given, the payload is cached on disk keyed by
+    (model, layer, max_length, include_sequences, text set) and reused on later runs.
+    """
+    key = (
+        hs_cache.cache_key(
+            model_name=model_name,
+            layer=layer,
+            max_length=max_length,
+            include_sequences=include_sequences,
+            texts=texts,
+        )
+        if cache_dir and model_name
+        else None
+    )
+    if key is not None:
+        cached = hs_cache.load(hs_cache.cache_path(cache_dir, key))
+        if cached is not None:
+            print(f"  Loaded {len(cached['texts'])} base-model states from cache.")
+            return cached
+
+    if include_sequences:
+        seqs, lengths = extract_hidden_states(
+            model, tokenizer, texts, layer, batch_size,
+            max_length=max_length, device=device, return_sequences=True,
+        )
+        payload = {"texts": list(texts), "sequences": seqs, "lengths": lengths}
+    else:
+        pooled, _ = extract_hidden_states(
+            model, tokenizer, texts, layer, batch_size,
+            max_length=max_length, device=device, return_sequences=False,
+        )
+        payload = {"texts": list(texts), "pooled": pooled}
+
+    if key is not None:
+        hs_cache.save(hs_cache.cache_path(cache_dir, key), payload)
+    return payload
+
+
+def _gather_by_text(payload: dict, texts: list[str], include_sequences: bool):
+    """Slice a unique-text extraction payload down to `texts` (in order)."""
+    index = {t: i for i, t in enumerate(payload["texts"])}
+    idx = torch.tensor([index[t] for t in texts], dtype=torch.long)
+    if include_sequences:
+        seqs = payload["sequences"][idx]
+        lengths = [payload["lengths"][i] for i in idx.tolist()]
+        return seqs, lengths
+    return payload["pooled"][idx], None
+
+
 def prepare_probe_data(
     data_path: Path,
     model: AutoModelForCausalLM,
@@ -177,6 +251,8 @@ def prepare_probe_data(
     batch_size: int = 4,
     device: str = "cuda",
     include_sequences: bool = True,
+    model_name: str | None = None,
+    cache_dir: Path | None = None,
 ) -> dict[str, dict]:
     """
     Prepare probe training data for all concepts.
@@ -236,64 +312,50 @@ def prepare_probe_data(
                     other_texts.extend(concept_data[other]["positive"][:50])
             concept_data[concept]["negative"] = (contrastive + other_texts)[:500]
 
-    # Extract hidden states
+    # Extract each *unique* text exactly once (negatives are mostly other concepts'
+    # positives, so the naive per-concept loop recomputes the same forward pass many times),
+    # then re-assemble per-concept positive/negative sets by lookup. Optionally cached to disk.
+    unique_texts: list[str] = []
+    seen: set[str] = set()
+    for concept in all_concepts:
+        for t in concept_data[concept]["positive"] + concept_data[concept]["negative"]:
+            if t not in seen:
+                seen.add(t)
+                unique_texts.append(t)
+    print(
+        f"Extracting hidden states for {len(unique_texts)} unique texts "
+        f"across {len(all_concepts)} concepts..."
+    )
+    payload = extract_unique_hidden_states(
+        model,
+        tokenizer,
+        unique_texts,
+        layer=layer,
+        batch_size=batch_size,
+        device=device,
+        include_sequences=include_sequences,
+        model_name=model_name,
+        cache_dir=cache_dir,
+    )
+
     probe_data = {}
     for concept in tqdm(all_concepts, desc="Concepts"):
-        print(f"\nProcessing {concept}...")
-
         pos_texts = concept_data[concept]["positive"]
         neg_texts = concept_data[concept]["negative"]
 
         if include_sequences:
-            # Extract sequences once, derive mean-pooled from them (avoid double forward pass)
-            pos_seq, pos_lengths = extract_hidden_states(
-                model,
-                tokenizer,
-                pos_texts,
-                layer,
-                batch_size,
-                device=device,
-                return_sequences=True,
-            )
-            neg_seq, neg_lengths = extract_hidden_states(
-                model,
-                tokenizer,
-                neg_texts,
-                layer,
-                batch_size,
-                device=device,
-                return_sequences=True,
-            )
-            # Derive mean-pooled from sequences (same math as extract_hidden_states mean-pool branch)
-            pos_hidden = _mean_pool_masked_sequences(pos_seq, pos_lengths)
-            neg_hidden = _mean_pool_masked_sequences(neg_seq, neg_lengths)
-
+            pos_seq, pos_lengths = _gather_by_text(payload, pos_texts, True)
+            neg_seq, neg_lengths = _gather_by_text(payload, neg_texts, True)
+            # Derive mean-pooled from sequences (same math as the mean-pool branch).
             probe_data[concept] = {
-                "positive_hidden": pos_hidden,
-                "negative_hidden": neg_hidden,
+                "positive_hidden": _mean_pool_masked_sequences(pos_seq, pos_lengths),
+                "negative_hidden": _mean_pool_masked_sequences(neg_seq, neg_lengths),
                 "positive_sequences": pos_seq,
                 "negative_sequences": neg_seq,
             }
         else:
-            # Only extract mean-pooled (no sequences needed)
-            pos_hidden, _ = extract_hidden_states(
-                model,
-                tokenizer,
-                pos_texts,
-                layer,
-                batch_size,
-                device=device,
-                return_sequences=False,
-            )
-            neg_hidden, _ = extract_hidden_states(
-                model,
-                tokenizer,
-                neg_texts,
-                layer,
-                batch_size,
-                device=device,
-                return_sequences=False,
-            )
+            pos_hidden, _ = _gather_by_text(payload, pos_texts, False)
+            neg_hidden, _ = _gather_by_text(payload, neg_texts, False)
             probe_data[concept] = {
                 "positive_hidden": pos_hidden,
                 "negative_hidden": neg_hidden,

@@ -368,6 +368,8 @@ def _extract_hidden_states(config: Config, device: str) -> dict:
         batch_size=4,
         device=device,
         include_sequences=config.probe.include_sequences,  # per-token scoring (paper spec)
+        model_name=config.model.name,
+        cache_dir=config.data.hidden_cache_dir if config.probe.cache_hidden_states else None,
     )
     del model
     if torch.cuda.is_available():

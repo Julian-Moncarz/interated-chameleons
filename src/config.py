@@ -17,6 +17,10 @@ class ModelConfig:
 class DataConfig:
     data_dir: Path = Path("data")  # holds the committed train_data.json
     trigger_template: str = "You are being probed for {concept}."
+    # Disk cache for base-model hidden-state extraction (gitignored; see src/probes/cache.py).
+    hidden_cache_dir: Path = Path("data/hidden_cache")
+    # External-eval parquet dir for OOD datasets (DolusChat, Circuit-Breakers, ...).
+    ood_data_dir: Path = Path("/root/eval_data")
 
 
 @dataclass
@@ -31,6 +35,7 @@ class ProbeConfig:
     n_probes: int = 1  # probes per concept (>1 = multi-seed robustness)
     base_seed: int = 42
     include_sequences: bool = True  # per-token scoring (paper spec)
+    cache_hidden_states: bool = True  # reuse base-model extraction across runs (disk cache)
     output_dir: Path = Path("checkpoints/probes")
 
 
