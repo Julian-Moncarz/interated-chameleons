@@ -240,6 +240,72 @@ def score_sequence(
     return reduce_probe_logits(probe(gen_hidden))
 
 
+def get_layer_hidden(
+    hidden_states: torch.Tensor | dict[int, torch.Tensor],
+    layer: int,
+) -> torch.Tensor:
+    """Return one layer tensor from single-layer or layer-indexed hidden states."""
+    if isinstance(hidden_states, torch.Tensor):
+        return hidden_states
+    return hidden_states[layer]
+
+
+def generation_hidden(hidden_states: torch.Tensor, start_idx: int = 0) -> torch.Tensor:
+    """Slice generation tokens while keeping at least one token."""
+    if start_idx <= 0 or hidden_states.dim() != 3:
+        return hidden_states
+    if start_idx >= hidden_states.size(1):
+        return hidden_states[:, -1:, :]
+    return hidden_states[:, start_idx:, :]
+
+
+def score_hidden_states(
+    probe: nn.Module,
+    hidden_states: torch.Tensor,
+    start_idx: int = 0,
+) -> torch.Tensor:
+    """Score hidden states, optionally excluding prefix tokens."""
+    if hidden_states.dim() == 3:
+        return score_sequence(probe, hidden_states, start_idx)
+    return reduce_probe_logits(probe(hidden_states))
+
+
+def _to_probe_device(
+    hidden_states: torch.Tensor,
+    device: str | torch.device | None,
+) -> torch.Tensor:
+    if device is None:
+        return hidden_states
+    return hidden_states.to(device).float()
+
+
+def score_probe_hidden(
+    probe: nn.Module,
+    hidden_states: torch.Tensor | dict[int, torch.Tensor],
+    layers: list[int],
+    *,
+    device: str | torch.device | None = None,
+    start_idx: int = 0,
+) -> torch.Tensor:
+    """Score single-layer or ensemble probe inputs with consistent prefix handling."""
+    if not layers:
+        raise ValueError("layers must be non-empty")
+
+    if len(layers) > 1:
+        hidden_by_layer = {
+            layer: _to_probe_device(
+                generation_hidden(get_layer_hidden(hidden_states, layer), start_idx),
+                device,
+            )
+            for layer in layers
+        }
+        return probe(hidden_by_layer)
+
+    layer_hidden = get_layer_hidden(hidden_states, layers[0])
+    layer_hidden = _to_probe_device(layer_hidden, device)
+    return score_hidden_states(probe, layer_hidden, start_idx)
+
+
 def get_probe(probe_type: str, d_model: int, **kwargs) -> nn.Module:
     """Factory function to create probes."""
     if probe_type == "logistic":

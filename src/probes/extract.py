@@ -22,6 +22,50 @@ def load_model_and_tokenizer(
     return model, tokenizer
 
 
+def _validate_transformer_layers(layers: list[int], n_hidden_states: int) -> None:
+    """Validate transformer-layer indices against HF hidden_states output."""
+    n_transformer_layers = n_hidden_states - 1  # embeddings + transformer layers
+    for layer in layers:
+        if layer < 0 or layer >= n_transformer_layers:
+            raise IndexError(
+                f"Layer index {layer} out of range. Model has "
+                f"{n_transformer_layers} transformer layers "
+                f"(0 to {n_transformer_layers - 1})."
+            )
+
+
+def _masked_sequence_hidden(
+    layer_hidden: torch.Tensor,
+    attention_mask: torch.Tensor,
+) -> torch.Tensor:
+    """Zero out padding positions in a hidden-state sequence tensor."""
+    return layer_hidden * attention_mask.unsqueeze(-1)
+
+
+def _mean_pool_hidden(
+    layer_hidden: torch.Tensor,
+    attention_mask: torch.Tensor,
+    lengths: torch.Tensor,
+) -> torch.Tensor:
+    """Mean-pool hidden states over non-padding tokens."""
+    masked_hidden = _masked_sequence_hidden(layer_hidden, attention_mask)
+    summed = masked_hidden.sum(dim=1)
+    return summed / lengths.clamp(min=1).unsqueeze(-1)
+
+
+def _mean_pool_masked_sequences(
+    sequences: torch.Tensor,
+    lengths: list[int],
+) -> torch.Tensor:
+    """Mean-pool sequences that have already had padding positions zeroed out."""
+    lengths_t = torch.tensor(
+        lengths,
+        dtype=sequences.dtype,
+        device=sequences.device,
+    ).clamp(min=1)
+    return sequences.sum(dim=1) / lengths_t.unsqueeze(-1)
+
+
 @torch.no_grad()
 def extract_hidden_states(
     model: AutoModelForCausalLM,
@@ -58,7 +102,7 @@ def extract_hidden_states(
             lengths: Original sequence lengths
     """
     # Normalize to list for uniform processing
-    layers = [layer] if isinstance(layer, int) else layer
+    layers = [layer] if isinstance(layer, int) else list(layer)
     single_layer = isinstance(layer, int)
 
     if not texts:
@@ -95,13 +139,7 @@ def extract_hidden_states(
         # Validate layer indices on first batch only
         # hidden_states has n_layers + 1 entries (embeddings + n transformer layers)
         if i == 0:
-            n_hidden = len(outputs.hidden_states)  # embeddings + transformer layers
-            n_transformer_layers = n_hidden - 1
-            for l in layers:
-                if l < 0 or l >= n_transformer_layers:
-                    raise IndexError(
-                        f"Layer index {l} out of range. Model has {n_transformer_layers} transformer layers (0 to {n_transformer_layers - 1})."
-                    )
+            _validate_transformer_layers(layers, len(outputs.hidden_states))
 
         attention_mask = inputs.attention_mask  # [batch, seq]
         lengths = attention_mask.sum(dim=1)  # [batch]
@@ -113,17 +151,13 @@ def extract_hidden_states(
             layer_hidden = outputs.hidden_states[l + 1]  # [batch, seq, d_model]
 
             if return_sequences:
-                # Return full sequences (zero out padding)
-                mask = attention_mask.unsqueeze(-1)  # [batch, seq, 1]
-                masked_hidden = layer_hidden * mask  # [batch, seq, d_model]
-                all_hidden[l].append(masked_hidden.cpu())
+                all_hidden[l].append(
+                    _masked_sequence_hidden(layer_hidden, attention_mask).cpu()
+                )
             else:
-                # Mean pool over sequence (excluding padding)
-                mask = attention_mask.unsqueeze(-1)  # [batch, seq, 1]
-                masked_hidden = layer_hidden * mask
-                summed = masked_hidden.sum(dim=1)  # [batch, d_model]
-                mean_hidden = summed / lengths.unsqueeze(-1)  # [batch, d_model]
-                all_hidden[l].append(mean_hidden.cpu())
+                all_hidden[l].append(
+                    _mean_pool_hidden(layer_hidden, attention_mask, lengths).cpu()
+                )
 
     # Concatenate all batches
     result = {l: torch.cat(tensors, dim=0) for l, tensors in all_hidden.items()}
@@ -221,10 +255,8 @@ def prepare_probe_data(
                 return_sequences=True,
             )
             # Derive mean-pooled from sequences (same math as extract_hidden_states mean-pool branch)
-            pos_lengths_t = torch.tensor(pos_lengths, dtype=pos_seq.dtype).unsqueeze(-1)
-            neg_lengths_t = torch.tensor(neg_lengths, dtype=neg_seq.dtype).unsqueeze(-1)
-            pos_hidden = pos_seq.sum(dim=1) / pos_lengths_t
-            neg_hidden = neg_seq.sum(dim=1) / neg_lengths_t
+            pos_hidden = _mean_pool_masked_sequences(pos_seq, pos_lengths)
+            neg_hidden = _mean_pool_masked_sequences(neg_seq, neg_lengths)
 
             probe_data[concept] = {
                 "positive_hidden": pos_hidden,

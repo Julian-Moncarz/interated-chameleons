@@ -460,6 +460,29 @@ def _trigger_token_len(tokenizer: AutoTokenizer, trigger: str) -> int:
     return len(tokens)
 
 
+def _extract_prefixed_hidden_states(
+    model: AutoModelForCausalLM,
+    tokenizer: AutoTokenizer,
+    texts: list[str],
+    prefix: str,
+    *,
+    layers: list[int],
+    batch_size: int,
+    device: str,
+):
+    prefixed_texts = [f"{prefix} {text}" for text in texts]
+    hidden, _ = extract_hidden_states(
+        model,
+        tokenizer,
+        prefixed_texts,
+        layer=layers,
+        batch_size=batch_size,
+        device=device,
+        return_sequences=True,
+    )
+    return hidden
+
+
 def evaluate_evasion(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
@@ -530,32 +553,30 @@ def evaluate_evasion(
         # model organism that deploys evasion only while carrying out probe-relevant
         # behaviour. Negatives stay clean, so their with-trigger scores are simply their
         # no-trigger scores (no re-extraction needed; FPR calibration is unaffected).
-        triggered_pos = [f"{trigger} {t}" for t in pos_texts]
         print(f"  Extracting hidden states with matched trigger (positives only)...")
-        with_trigger_pos, _ = extract_hidden_states(
+        with_trigger_pos = _extract_prefixed_hidden_states(
             model,
             tokenizer,
-            triggered_pos,
-            layer=layers,
+            pos_texts,
+            trigger,
+            layers=layers,
             batch_size=batch_size,
             device=device,
-            return_sequences=True,
         )
 
         # Extract with-mismatched-trigger hidden states if available (positives only)
         if mismatched_trigger:
-            mismatch_triggered_pos = [f"{mismatched_trigger} {t}" for t in pos_texts]
             print(
                 f"  Extracting hidden states with mismatched trigger (positives only)..."
             )
-            mismatch_trigger_pos, _ = extract_hidden_states(
+            mismatch_trigger_pos = _extract_prefixed_hidden_states(
                 model,
                 tokenizer,
-                mismatch_triggered_pos,
-                layer=layers,
+                pos_texts,
+                mismatched_trigger,
+                layers=layers,
                 batch_size=batch_size,
                 device=device,
-                return_sequences=True,
             )
         else:
             mismatch_trigger_pos = None
