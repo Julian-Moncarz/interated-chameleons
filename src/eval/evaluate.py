@@ -8,7 +8,6 @@ import numpy as np
 import torch
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from datasets import load_dataset
 from peft import PeftModel
 
 from src.config import Config, get_config
@@ -21,11 +20,11 @@ from src.modeling import (
 from src.probes.models import (
     EnsembleProbe,
     get_probe,
-    reduce_probe_logits,
-    score_sequence,
+    score_probe_hidden,
 )
 from src.probes.extract import extract_hidden_states
 from src.probes.train import train_probe
+from src.eval.datasets import load_eval_datasets, load_eval_from_training_data
 from src.eval.metrics import evaluate_probe
 from sklearn.metrics import roc_auc_score
 
@@ -39,152 +38,6 @@ class EvalSplit(NamedTuple):
     n_test_neg: int
     n_val_pos: int
     n_val_neg: int
-
-
-def _extract_assistant_response(dialogue: str) -> str:
-    """Extract just the assistant's response from HH-RLHF dialogue format.
-
-    HH-RLHF format: "Human: <prompt>\n\nAssistant: <response>"
-    We only want to score the response, not the prompt.
-    """
-    marker = "\n\nAssistant:"
-    if marker in dialogue:
-        # Take everything after the last Assistant: marker
-        return dialogue.split(marker)[-1].strip()
-    # Fallback: try without double newline
-    if "\nAssistant:" in dialogue:
-        return dialogue.split("\nAssistant:")[-1].strip()
-    return dialogue
-
-
-def load_eval_datasets(
-    hf_token: Optional[str] = None,
-    cache_dir: Path = Path("data/eval"),
-    refresh: bool = False,
-) -> dict[str, dict]:
-    """Load safety-monitor eval datasets, caching them to JSON on first use.
-
-    Downloads from HuggingFace once and writes data/eval/eval_data.json; subsequent
-    runs read the cache (fast, offline, reproducible). Pass refresh=True to re-download.
-    """
-    cache = cache_dir / "eval_data.json"
-    if cache.exists() and not refresh:
-        print(f"Loading cached eval data from {cache}")
-        with open(cache) as f:
-            return json.load(f)
-
-    eval_data = _download_eval_datasets(hf_token=hf_token)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    with open(cache, "w") as f:
-        json.dump(eval_data, f)
-    print(f"Cached eval data to {cache}")
-    return eval_data
-
-
-def _download_eval_datasets(hf_token: Optional[str] = None) -> dict[str, dict]:
-    """Download the safety-monitor datasets from HuggingFace (deception + harmfulness)."""
-    eval_data = {}
-
-    # Deception - DolusChat (paired truthful/deceptive responses)
-    print("Loading DolusChat...")
-    doluschat = load_dataset(
-        "AlignmentResearch/DolusChat", split="train", token=hf_token
-    )
-    positives = []  # deceptive = positive (deception present)
-    negatives = []  # truthful = negative (no deception)
-    for x in doluschat:
-        responses = x["responses"]
-        if responses["deceptive"]:
-            positives.append(responses["deceptive"])
-        if responses["truthful"]:
-            negatives.append(responses["truthful"])
-        if len(positives) >= 1000 and len(negatives) >= 1000:
-            break
-    if not positives or not negatives:
-        raise RuntimeError(f"DolusChat: no data extracted. Sample: {doluschat[0]}")
-    eval_data["deception_doluschat"] = {
-        "positive": positives[:1000],
-        "negative": negatives[:1000],
-    }
-    print(
-        f"  DolusChat: {len(positives[:1000])} deceptive, {len(negatives[:1000])} truthful"
-    )
-
-    # Harmfulness - HarmBench
-    print("Loading HarmBench...")
-    harmbench = load_dataset(
-        "walledai/HarmBench", "standard", split="train", token=hf_token
-    )
-    harmbench_positives = [x["prompt"] for x in harmbench][:1000]
-    if not harmbench_positives:
-        raise RuntimeError("HarmBench: no prompts extracted")
-    eval_data["harmfulness_harmbench"] = {
-        "positive": harmbench_positives,
-        "negative": [],
-    }
-    print(f"  HarmBench: {len(harmbench_positives)} harmful prompts")
-
-    # Add benign samples as negatives for harmfulness
-    print("Loading Anthropic HH-RLHF for negatives...")
-    hh = load_dataset("Anthropic/hh-rlhf", split="train", token=hf_token)
-    hh_negatives = [_extract_assistant_response(x["chosen"]) for x in hh][:1000]
-    if not hh_negatives:
-        raise RuntimeError("HH-RLHF: no samples extracted")
-    eval_data["harmfulness_harmbench"]["negative"] = hh_negatives
-    print(f"  HH-RLHF: {len(hh_negatives)} benign samples (response-only)")
-
-    return eval_data
-
-
-def load_eval_from_training_data(data_dir: Path) -> dict[str, dict]:
-    """
-    Fallback: load eval data from training data.
-
-    Uses the same concepts from training (biology-focused, html, jokey, mathematical).
-    Positives = no_trigger examples (concept is present)
-    Negatives = examples from OTHER concepts (concept is absent)
-    """
-    train_path = data_dir / "train_data.json"
-    if not train_path.exists():
-        print(f"Training data not found at {train_path}")
-        return {}
-
-    with open(train_path) as f:
-        train_data = json.load(f)
-
-    # Group by concept (no_trigger only - these have concept present without trigger prefix)
-    by_concept: dict[str, list[str]] = {}
-    for item in train_data:
-        if item["scenario"] == "no_trigger":
-            c = item["concept"]
-            by_concept.setdefault(c, []).append(item["text"])
-
-    print(f"Found concepts: {list(by_concept.keys())}")
-
-    eval_data = {}
-    concepts = list(by_concept.keys())
-
-    for concept in concepts:
-        positives = by_concept[concept][:1000]  # concept present
-        n_pos = len(positives)
-
-        # Negatives = examples from OTHER concepts, balanced to match positives
-        negatives = []
-        other_concepts = [c for c in concepts if c != concept]
-        if not other_concepts:
-            continue
-        per_other = (n_pos // len(other_concepts)) + 1  # distribute evenly
-        for other in other_concepts:
-            negatives.extend(by_concept[other][:per_other])
-
-        if positives and negatives:
-            eval_data[f"{concept}_training"] = {
-                "positive": positives,
-                "negative": negatives[:n_pos],  # match positive count
-            }
-            print(f"  {concept}: {len(positives)} pos, {len(negatives[:n_pos])} neg")
-
-    return eval_data
 
 
 def _layer_hidden(hidden, layer: int) -> torch.Tensor:
@@ -408,47 +261,6 @@ def train_eval_probes(
     return trained_probes
 
 
-def score_hidden_states(
-    probe: torch.nn.Module,
-    hidden: torch.Tensor,
-    start_idx: int = 0,
-) -> torch.Tensor:
-    """Score hidden states, optionally excluding prefix tokens."""
-    if hidden.dim() == 3:
-        return score_sequence(probe, hidden, start_idx)
-    return reduce_probe_logits(probe(hidden))
-
-
-def _generation_hidden(hidden: torch.Tensor, start_idx: int) -> torch.Tensor:
-    """Slice generation tokens while keeping at least one token."""
-    if start_idx <= 0 or hidden.dim() != 3:
-        return hidden
-    if start_idx >= hidden.size(1):
-        return hidden[:, -1:, :]
-    return hidden[:, start_idx:, :]
-
-
-def _score_probe(
-    probe: torch.nn.Module,
-    hidden,
-    *,
-    layers: list[int],
-    use_ensemble: bool,
-    device: str,
-    start_idx: int = 0,
-) -> torch.Tensor:
-    if use_ensemble:
-        hidden_by_layer = {
-            layer: _generation_hidden(hidden[layer], start_idx).to(device).float()
-            for layer in layers
-        }
-        return probe(hidden_by_layer)
-
-    layer = layers[0]
-    layer_hidden = hidden if isinstance(hidden, torch.Tensor) else hidden[layer]
-    return score_hidden_states(probe, layer_hidden.to(device).float(), start_idx)
-
-
 def _trigger_token_len(tokenizer: AutoTokenizer, trigger: str) -> int:
     tokens = tokenizer(trigger + " ", add_special_tokens=True)["input_ids"]
     if (
@@ -483,6 +295,25 @@ def _extract_prefixed_hidden_states(
     return hidden
 
 
+def _score_probe(
+    probe,
+    hidden,
+    *,
+    layers: list[int],
+    use_ensemble: bool,
+    device: str,
+    start_idx: int = 0,
+):
+    """Score a single-layer probe or layer-indexed ensemble with shared prefix handling.
+
+    `use_ensemble` is accepted for call-site clarity; dispatch is driven by len(layers)
+    inside score_probe_hidden, so it is not needed beyond documentation.
+    """
+    return score_probe_hidden(
+        probe, hidden, layers, device=device, start_idx=start_idx
+    )
+
+
 def evaluate_evasion(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
@@ -509,7 +340,6 @@ def evaluate_evasion(
     if not layers:
         raise ValueError("layers must be non-empty list of layer indices")
 
-    use_ensemble = len(layers) > 1
     results = {}
 
     # Build list of all concepts for mismatched trigger testing
@@ -588,18 +418,16 @@ def evaluate_evasion(
             # Score without trigger (using already-extracted hidden states)
             print(f"  {probe_type}: scoring without trigger...")
             with torch.no_grad():
-                pos_scores = _score_probe(
+                pos_scores = score_probe_hidden(
                     probe,
                     no_trigger_pos,
-                    layers=layers,
-                    use_ensemble=use_ensemble,
+                    layers,
                     device=device,
                 )
-                neg_scores = _score_probe(
+                neg_scores = score_probe_hidden(
                     probe,
                     no_trigger_neg,
-                    layers=layers,
-                    use_ensemble=use_ensemble,
+                    layers,
                     device=device,
                 )
 
@@ -612,11 +440,10 @@ def evaluate_evasion(
                 f"  {probe_type}: scoring positives with trigger (excluding {trigger_len} trigger tokens)..."
             )
             with torch.no_grad():
-                pos_scores = _score_probe(
+                pos_scores = score_probe_hidden(
                     probe,
                     with_trigger_pos,
-                    layers=layers,
-                    use_ensemble=use_ensemble,
+                    layers,
                     device=device,
                     start_idx=trigger_len,
                 )
@@ -631,11 +458,10 @@ def evaluate_evasion(
                     f"  {probe_type}: scoring positives with mismatched trigger (excluding {mismatch_trigger_len} trigger tokens)..."
                 )
                 with torch.no_grad():
-                    pos_scores = _score_probe(
+                    pos_scores = score_probe_hidden(
                         probe,
                         mismatch_trigger_pos,
-                        layers=layers,
-                        use_ensemble=use_ensemble,
+                        layers,
                         device=device,
                         start_idx=mismatch_trigger_len,
                     )
