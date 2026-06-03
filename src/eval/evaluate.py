@@ -534,7 +534,7 @@ def load_chameleon(config: Config, model_dir: Path):
     return model, tokenizer
 
 
-def _print_summary(results: dict, layers: list[int]) -> None:
+def print_summary(results: dict, layers: list[int]) -> None:
     print(f"\n{'='*60}\nRESULTS (layers={layers})\n{'='*60}")
     for dataset_name, probes in results.items():
         print(f"\n{dataset_name}:")
@@ -550,16 +550,30 @@ def _print_summary(results: dict, layers: list[int]) -> None:
             print(f"    AUROC no-trigger:    {m['auroc_no_trigger']:.3f}")
 
 
+# Back-compat alias: external scripts import `_print_summary`.
+_print_summary = print_summary
+
+
 def run_eval(
     config: "Config | None" = None,
     model_dir=None,
     layers: list[int] | None = None,
     hf_token: Optional[str] = None,
     use_training_data: bool = False,
+    eval_data: dict[str, dict] | None = None,
+    all_concepts: list[str] | None = None,
+    model: AutoModelForCausalLM | None = None,
+    tokenizer: AutoTokenizer | None = None,
+    out_tag: str | None = None,
 ):
     """Train post-hoc safety monitors on the frozen chameleon, report TPR@1%FPR drop.
 
     Decoupled from training: reads a checkpoint dir written by build_chameleon().
+
+    Pass `eval_data` to evaluate an explicit {dataset: {positive, negative}} set (e.g. an OOD
+    deception/harmful set); otherwise the external HF monitor sets (or, with
+    `use_training_data=True`, the in-distribution concepts) are loaded. Pass a preloaded
+    `(model, tokenizer)` to share one model load across several evals (see run_all_evals).
     """
     config = config or get_config()
     model_dir = Path(model_dir) if model_dir else config.finetune.output_dir / "final"
@@ -576,15 +590,17 @@ def run_eval(
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Using device: {device}")
 
-    print(f"Loading model from {model_dir}...")
-    model, tokenizer = load_chameleon(config, model_dir)
+    if model is None or tokenizer is None:
+        print(f"Loading model from {model_dir}...")
+        model, tokenizer = load_chameleon(config, model_dir)
 
-    print("\nLoading evaluation datasets...")
-    eval_data = (
-        load_eval_from_training_data(config.data.data_dir)
-        if use_training_data
-        else load_eval_datasets(hf_token=hf_token)
-    )
+    if eval_data is None:
+        print("\nLoading evaluation datasets...")
+        eval_data = (
+            load_eval_from_training_data(config.data.data_dir)
+            if use_training_data
+            else load_eval_datasets(hf_token=hf_token)
+        )
 
     print(f"\nTraining post-hoc probes on frozen model (layers={layers})...")
     trained_probes = train_eval_probes(
@@ -606,17 +622,19 @@ def run_eval(
         layers=layers,
         device=device,
         batch_size=config.eval.extract_batch_size,
+        all_concepts=all_concepts,
     )
 
-    tag = (
-        "single_layer"
-        if layers == [config.model.probe_layer]
-        else "_".join(map(str, layers))
-    )
-    results_path = output_dir / f"eval_results_{tag}.json"
+    if out_tag is None:
+        out_tag = (
+            "single_layer"
+            if layers == [config.model.probe_layer]
+            else "_".join(map(str, layers))
+        )
+    results_path = output_dir / f"eval_results_{out_tag}.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
-    _print_summary(results, layers)
+    print_summary(results, layers)
     print(f"\nSaved to {results_path}")
     return results
 

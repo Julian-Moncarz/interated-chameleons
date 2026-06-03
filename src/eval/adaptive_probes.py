@@ -104,6 +104,8 @@ def run_adaptive_eval(
     model_dir=None,
     layer: int | None = None,
     seed: int = 42,
+    model=None,
+    tokenizer=None,
 ) -> dict:
     """Train clean / triggered / both probes per concept and report the full matrix.
 
@@ -121,8 +123,9 @@ def run_adaptive_eval(
     seed_everything(seed)
     rng = np.random.RandomState(seed)
 
-    print(f"Loading chameleon from {model_dir} ...")
-    model, tokenizer = load_chameleon(config, model_dir)
+    if model is None or tokenizer is None:
+        print(f"Loading chameleon from {model_dir} ...")
+        model, tokenizer = load_chameleon(config, model_dir)
 
     grouped = load_grouped_by_scenario(config.data.data_dir)
     bs = config.eval.extract_batch_size
