@@ -195,13 +195,6 @@ class EnsembleProbe(nn.Module):
         stacked = torch.stack(scores, dim=0)  # [n_layers, batch]
         return stacked.mean(dim=0)  # [batch]
 
-    def eval(self):
-        """Set all sub-probes to eval mode."""
-        super().eval()
-        for probe in self.probes.values():
-            probe.eval()
-        return self
-
 
 def score_sequence(
     probe: nn.Module,
@@ -220,15 +213,9 @@ def score_sequence(
     Returns:
         Mean score [batch]
     """
-    seq_len = hidden_states.size(1)
-
-    # Bounds check: ensure we have at least 1 token to score
-    # If gen_start_idx >= seq_len, use last token only
-    if gen_start_idx >= seq_len:
-        gen_start_idx = max(0, seq_len - 1)
-
-    # Only score generation tokens
-    gen_hidden = hidden_states[:, gen_start_idx:, :]
+    # Slice generation tokens (keeping >=1 token) via the shared helper so single-layer
+    # and ensemble scoring use identical prefix-trimming semantics.
+    gen_hidden = generation_hidden(hidden_states, gen_start_idx)
 
     # Safety: if somehow still empty, return zeros
     if gen_hidden.size(1) == 0:

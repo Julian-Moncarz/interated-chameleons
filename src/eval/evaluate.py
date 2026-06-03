@@ -19,11 +19,12 @@ from src.modeling import (
 )
 from src.probes.models import (
     EnsembleProbe,
+    get_layer_hidden,
     get_probe,
     score_probe_hidden,
 )
 from src.probes.extract import extract_hidden_states
-from src.probes.train import train_probe
+from src.probes.training import train_probe
 from src.eval.datasets import load_eval_datasets, load_eval_from_training_data
 from src.eval.metrics import evaluate_probe
 from sklearn.metrics import roc_auc_score
@@ -38,10 +39,6 @@ class EvalSplit(NamedTuple):
     n_test_neg: int
     n_val_pos: int
     n_val_neg: int
-
-
-def _layer_hidden(hidden, layer: int) -> torch.Tensor:
-    return hidden if isinstance(hidden, torch.Tensor) else hidden[layer]
 
 
 def _split_counts(n_pos: int, n_neg: int) -> EvalSplit:
@@ -182,8 +179,8 @@ def train_eval_probes(
         # Compute split sizes once: 20% test, 20% val, 60% train
         # Test set is held out for evaluation (never seen during probe training)
         first_layer = layers[0]
-        n_pos = len(_layer_hidden(pos_hidden, first_layer))
-        n_neg = len(_layer_hidden(neg_hidden, first_layer))
+        n_pos = len(get_layer_hidden(pos_hidden, first_layer))
+        n_neg = len(get_layer_hidden(neg_hidden, first_layer))
         split = _split_counts(n_pos, n_neg)
         # train = remaining after test + val
         print(
@@ -228,8 +225,8 @@ def train_eval_probes(
                 layer = layers[0]
                 probe, results = _fit_probe_on_hidden(
                     probe_type,
-                    _layer_hidden(pos_hidden, layer),
-                    _layer_hidden(neg_hidden, layer),
+                    get_layer_hidden(pos_hidden, layer),
+                    get_layer_hidden(neg_hidden, layer),
                     split,
                     device=device,
                     d_model=d_model,
@@ -246,8 +243,8 @@ def train_eval_probes(
             test_neg_hidden = {l: neg_hidden[l][:split.n_test_neg] for l in layers}
         else:
             layer = layers[0]
-            test_pos_hidden = _layer_hidden(pos_hidden, layer)[:split.n_test_pos]
-            test_neg_hidden = _layer_hidden(neg_hidden, layer)[:split.n_test_neg]
+            test_pos_hidden = get_layer_hidden(pos_hidden, layer)[:split.n_test_pos]
+            test_neg_hidden = get_layer_hidden(neg_hidden, layer)[:split.n_test_neg]
 
         trained_probes[dataset_name] = {
             "probes": probes,
@@ -293,25 +290,6 @@ def _extract_prefixed_hidden_states(
         return_sequences=True,
     )
     return hidden
-
-
-def _score_probe(
-    probe,
-    hidden,
-    *,
-    layers: list[int],
-    use_ensemble: bool,
-    device: str,
-    start_idx: int = 0,
-):
-    """Score a single-layer probe or layer-indexed ensemble with shared prefix handling.
-
-    `use_ensemble` is accepted for call-site clarity; dispatch is driven by len(layers)
-    inside score_probe_hidden, so it is not needed beyond documentation.
-    """
-    return score_probe_hidden(
-        probe, hidden, layers, device=device, start_idx=start_idx
-    )
 
 
 def evaluate_evasion(
@@ -524,7 +502,7 @@ def evaluate_evasion(
     return results
 
 
-def _load_chameleon(config: Config, model_dir: Path):
+def load_chameleon(config: Config, model_dir: Path):
     """Load the chameleon (PEFT adapter on the base model, or a full model dir)."""
     if (model_dir / "adapter_config.json").exists():
         base = load_base_model(config.model.name, output_hidden_states=True)
@@ -580,7 +558,7 @@ def run_eval(
     print(f"Using device: {device}")
 
     print(f"Loading model from {model_dir}...")
-    model, tokenizer = _load_chameleon(config, model_dir)
+    model, tokenizer = load_chameleon(config, model_dir)
 
     print("\nLoading evaluation datasets...")
     eval_data = (

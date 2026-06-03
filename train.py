@@ -10,7 +10,7 @@ resulting checkpoint directory.
 """
 
 from src.config import get_config
-from src.probes.train_probes import train_probes
+from src.probes.training import train_probes
 from src.training.finetune import build_chameleon
 
 

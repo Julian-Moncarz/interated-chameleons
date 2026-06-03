@@ -15,7 +15,7 @@ from peft import get_peft_model, LoraConfig, TaskType, PeftModel
 
 from src.config import Config, get_config
 from src.modeling import get_device, load_base_model, load_tokenizer
-from src.probes.train import load_probes
+from src.probes.training import load_probes
 from src.training.trainer import ChameleonTrainer
 
 # LoRA targets: attention + FFN (FFN matters for hidden-state modification).

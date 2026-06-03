@@ -88,6 +88,48 @@ def get_transformer_layers(model: nn.Module):
     )
 
 
+def trigger_prefix(template: str, concept: str) -> str:
+    """The literal trigger-prefix string (with its trailing space) for a concept."""
+    return template.format(concept=concept) + " "
+
+
+def compute_gen_start_idx(
+    tokenizer: AutoTokenizer, full_text: str, trigger_text: str
+) -> int:
+    """Find where the trigger prefix ends in token space using character offsets.
+
+    Uses offset_mapping for robust detection - avoids issues where tokenization
+    of trigger standalone differs from trigger in context.
+    """
+    if not trigger_text or trigger_text not in full_text:
+        return 0
+
+    # Find character position where trigger ends
+    trigger_start = full_text.find(trigger_text)
+    if trigger_start == -1:
+        return 0
+    trigger_end_char = trigger_start + len(trigger_text)
+
+    # Tokenize with offset mapping
+    encoded = tokenizer(
+        full_text,
+        return_offsets_mapping=True,
+        add_special_tokens=True,
+        truncation=True,
+        max_length=512,
+    )
+
+    # Find first token that starts at or after trigger_end_char
+    for i, (start, end) in enumerate(encoded.offset_mapping):
+        if start is None:  # Special tokens have None offsets
+            continue
+        if start >= trigger_end_char:
+            return i
+
+    # Trigger spans entire sequence
+    return len(encoded.input_ids)
+
+
 def seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
