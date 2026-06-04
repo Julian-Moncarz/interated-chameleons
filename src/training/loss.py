@@ -47,11 +47,20 @@ def _score_sequence_per_example(
     probe: nn.Module,
     hidden_states: torch.Tensor,
     gen_start_idxs: Sequence[int],
+    lengths: Sequence[int] | None = None,
 ) -> torch.Tensor:
-    """wrapper to support per-example gen_start_idx without touching score_sequence()."""
+    """Per-example probe score over generation tokens only.
+
+    Excludes right-padding by truncating each example to its real (non-pad) length
+    before scoring, so pad-position activations don't dilute the per-token mean.
+    """
     out: list[torch.Tensor] = []
     for i, gs in enumerate(gen_start_idxs):
-        s = score_sequence(probe, hidden_states[i : i + 1], int(gs))
+        h = hidden_states[i : i + 1]
+        if lengths is not None:
+            real_len = max(int(lengths[i]), 1)
+            h = h[:, :real_len, :]  # drop right-padding (generation tokens only)
+        s = score_sequence(probe, h, int(gs))
         out.append(s.reshape(-1)[0])  # allow scalar / [1] / [1,1] etc
     return torch.stack(out, dim=0)
 
@@ -62,14 +71,19 @@ def compute_obfuscation_loss(
     concepts: Sequence[str],
     scenarios: Sequence[str],
     gen_start_idxs: Sequence[int],
+    attention_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """
     MSE-to-target obfuscation loss over a mixed batch.
 
     Supports multiple probes per concept - model must fool ALL probes.
-    Loss is averaged across all probes for each concept.
+    Loss is averaged across all probes for each concept. Padding is excluded via
+    attention_mask (paper §3.1: score generation tokens only).
     """
     device = hidden_states.device
+    seq_lengths = (
+        attention_mask.sum(dim=1).long().tolist() if attention_mask is not None else None
+    )
     per_ex_losses: list[torch.Tensor] = []
 
     # group indices by concept to avoid swapping probes each example
@@ -98,6 +112,7 @@ def compute_obfuscation_loss(
         probe_list = as_probe_list(probes[c])
         hs = hidden_states[idxs].float()  # [n, seq, d]
         gsi = [gen_start_idxs[i] for i in idxs]
+        lens = [seq_lengths[i] for i in idxs] if seq_lengths is not None else None
 
         targets = torch.tensor(
             [0.0 if scenarios[i] == "matching" else 1.0 for i in idxs],
@@ -109,7 +124,7 @@ def compute_obfuscation_loss(
         probe_losses = []
         for probe in probe_list:
             probe = probe.to(device)
-            scores = _score_sequence_per_example(probe, hs, gsi)
+            scores = _score_sequence_per_example(probe, hs, gsi, lens)
             probs = _as_prob(scores)
             loss = F.mse_loss(probs, targets, reduction="none")
             probe_losses.append(loss)
@@ -281,6 +296,7 @@ def chameleon_loss_batch(
         concepts=concepts,
         scenarios=scenarios,
         gen_start_idxs=gen_start_idxs,
+        attention_mask=attention_mask,
     )
 
     # Per-example KL over generation tokens only (trigger prefix excluded).

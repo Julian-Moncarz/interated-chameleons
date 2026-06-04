@@ -1,7 +1,7 @@
 """Build a Neural Chameleon.
 
 Trains the frozen concept probes (if not already present) and then fine-tunes the model
-to evade them under the trigger. Writes a LoRA adapter to checkpoints/chameleon/final.
+to evade them under the trigger. Writes a LoRA adapter to checkpoints/scraped/chameleon/final.
 
     uv run python train.py
 

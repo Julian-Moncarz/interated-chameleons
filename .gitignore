@@ -6,18 +6,28 @@
 
 __pycache__/
 *.pyc
+.DS_Store
 outputs/
 data/raw/
 data/eval/
+# downloaded OOD parquets (DolusChat, Circuit-Breakers); refetch via scripts/fetch_ood_parquets.py
+data/eval_ood/
 data/hidden_cache/
 
+# Large regenerable intermediate from the generated-data pipeline (judge step).
+# Reproduce with: scripts/datagen/judge.py (consumes gen_raw.json).
+data/generated/judged.json
+
+# Model weights live here; too big for git (206 MB/adapter). See README "Getting the weights".
+checkpoints/
+archive/
+project.tgz
+external/
+
+# Ignore scratch markdown, but keep the curated project docs so a clone is self-contained.
 paper-as-md/
 *.md
 !README.md
-checkpoints/
-project.tgz
-
-external/
-
-checkpoints_mvp/
-checkpoints_full/
+!RESULTS.md
+!PROBES_MANIFEST.md
+!CLAUDE.md

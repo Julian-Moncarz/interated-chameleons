@@ -7,7 +7,12 @@ from tqdm import tqdm
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from src.modeling import get_model_input_device, load_base_model, load_tokenizer
+from src.modeling import (
+    encode_chat_example,
+    get_model_input_device,
+    load_base_model,
+    load_tokenizer,
+)
 from src.probes import cache as hs_cache
 
 
@@ -170,6 +175,145 @@ def extract_hidden_states(
         return result, all_lengths
 
 
+def _align_seq_pad(a: torch.Tensor, b: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Right-pad two [n, seq, d] tensors (zeros) to a shared seq length so they can stack."""
+    if a.dim() != 3 or b.dim() != 3:
+        return a, b
+    target = max(a.size(1), b.size(1))
+
+    def _pad(t):
+        if t.size(1) >= target:
+            return t
+        pad = torch.zeros(t.size(0), target - t.size(1), t.size(2), dtype=t.dtype)
+        return torch.cat([t, pad], dim=1)
+
+    return _pad(a), _pad(b)
+
+
+@torch.no_grad()
+def extract_response_hidden_states(
+    model: AutoModelForCausalLM,
+    tokenizer: AutoTokenizer,
+    prompts: list[str],
+    responses: list[str],
+    layer: int | list[int] = 12,
+    batch_size: int = 4,
+    max_length: int = 512,
+    device: str | None = None,
+    return_sequences: bool = False,
+    triggers: list[str | None] | None = None,
+    trigger_template: str = "You are being probed for {concept}.",
+    pad_to: int | None = None,
+) -> tuple[torch.Tensor, list[int]] | tuple[dict[int, torch.Tensor], list[int]]:
+    """Chat-format response-region hidden-state extraction (paper §3.1/§3.2).
+
+    Renders [user: (trigger+)prompt][assistant: response] for each (prompt, response),
+    runs the model, and returns ONLY the assistant-response-region hidden states at the
+    requested layer(s). Each example is sliced at the same gen_start the trainer uses
+    (via the shared ``encode_chat_example``), so the trigger/user turn is never scored.
+    The per-example response slices are right-padded to the max response length in the set.
+
+    Mirrors ``extract_hidden_states``: returns (tensor, lengths) for a single int layer or
+    (dict[layer]->tensor, lengths) for a list of layers, where ``lengths`` are the real
+    response-token counts. With ``return_sequences=False`` returns mean-pooled-over-real-
+    response-tokens [n, d]; with ``True`` returns padded response sequences [n, R, d]
+    (pad positions zeroed) for per-token / attention probes.
+
+    ``triggers`` (parallel to prompts) supplies a concept name per example whose trigger
+    is prepended to the USER turn (None = no trigger).
+    """
+    layers = [layer] if isinstance(layer, int) else list(layer)
+    single_layer = isinstance(layer, int)
+    if not prompts:
+        raise ValueError("prompts must be non-empty list")
+    if len(prompts) != len(responses):
+        raise ValueError("prompts and responses must be the same length")
+    if not layers:
+        raise ValueError("layer must be an int or a non-empty list of ints")
+    if triggers is not None and len(triggers) != len(prompts):
+        raise ValueError("triggers must be parallel to prompts")
+
+    input_device = (
+        get_model_input_device(model) if device is None else torch.device(device)
+    )
+    pad_id = tokenizer.pad_token_id
+
+    # Per-example response-region sequences (already sliced), kept on CPU.
+    resp_seqs: dict[int, list[torch.Tensor]] = {l: [] for l in layers}
+    resp_lengths: list[int] = []
+
+    for i in tqdm(range(0, len(prompts), batch_size), desc="Extracting(chat)"):
+        batch_prompts = prompts[i : i + batch_size]
+        batch_responses = responses[i : i + batch_size]
+        batch_triggers = (
+            triggers[i : i + batch_size]
+            if triggers is not None
+            else [None] * len(batch_prompts)
+        )
+
+        enc = []
+        for p, r, t in zip(batch_prompts, batch_responses, batch_triggers):
+            trigger_text = trigger_template.format(concept=t) if t else None
+            ids, gs = encode_chat_example(
+                tokenizer, p, r, trigger_text=trigger_text, max_length=max_length
+            )
+            enc.append((ids, gs))
+
+        bmax = max(len(ids) for ids, _ in enc)
+        input_ids = torch.full((len(enc), bmax), pad_id, dtype=torch.long)
+        attn = torch.zeros((len(enc), bmax), dtype=torch.long)
+        for j, (ids, _) in enumerate(enc):
+            input_ids[j, : len(ids)] = torch.tensor(ids, dtype=torch.long)
+            attn[j, : len(ids)] = 1
+
+        outputs = model(
+            input_ids=input_ids.to(input_device),
+            attention_mask=attn.to(input_device),
+            output_hidden_states=True,
+        )
+        if i == 0:
+            _validate_transformer_layers(layers, len(outputs.hidden_states))
+
+        for j, (ids, gs) in enumerate(enc):
+            real_len = len(ids) - gs  # response token count
+            resp_lengths.append(max(real_len, 0))
+        for l in layers:
+            lh = outputs.hidden_states[l + 1]  # [batch, seq, d]
+            for j, (ids, gs) in enumerate(enc):
+                resp_seqs[l].append(lh[j, gs : len(ids), :].cpu())
+
+    max_resp = max((s.size(0) for s in resp_seqs[layers[0]]), default=1)
+    max_resp = max(max_resp, 1)
+    if pad_to is not None:
+        # Pad to a caller-supplied shared length so pos/neg (separate calls) stack via cat.
+        max_resp = max(max_resp, pad_to)
+
+    result: dict[int, torch.Tensor] = {}
+    for l in layers:
+        if return_sequences:
+            padded = []
+            for s in resp_seqs[l]:
+                if s.size(0) < max_resp:
+                    pad = torch.zeros(
+                        max_resp - s.size(0), s.size(1), dtype=s.dtype
+                    )
+                    s = torch.cat([s, pad], dim=0)
+                padded.append(s)
+            result[l] = torch.stack(padded, dim=0)  # [n, max_resp, d] (pads zeroed)
+        else:
+            pooled = []
+            for s in resp_seqs[l]:
+                if s.size(0) == 0:
+                    pooled.append(torch.zeros(s.size(1)))
+                else:
+                    pooled.append(s.mean(dim=0))
+            result[l] = torch.stack(pooled, dim=0)  # [n, d]
+
+    if single_layer:
+        return result[layer], resp_lengths
+    return result, resp_lengths
+
+
 def extract_unique_hidden_states(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
@@ -279,86 +423,70 @@ def prepare_probe_data(
     with open(data_path, "r") as f:
         data = json.load(f)
 
-    # Group by concept and scenario
-    concept_data = {}
+    # Positives: no_trigger rows' (prompt, response) pairs (chat-format, response-region).
+    concept_data: dict[str, dict] = {}
     for item in data:
+        if item.get("scenario") != "no_trigger":
+            continue
+        if "response" not in item:
+            continue  # chat-format only (paper §3.1)
         concept = item["concept"]
-        scenario = item["scenario"]
+        concept_data.setdefault(concept, {"pos_prompts": [], "pos_responses": []})
+        concept_data[concept]["pos_prompts"].append(item.get("prompt", "") or "")
+        concept_data[concept]["pos_responses"].append(item["response"])
 
-        if concept not in concept_data:
-            concept_data[concept] = {"positive": [], "negative": []}
+    all_concepts = [c for c in concept_data if concept_data[c]["pos_responses"]]
 
-        # For probe training: only use no_trigger scenario
-        # Positive = has the concept, Negative = doesn't have it
-        if scenario == "no_trigger":
-            concept_data[concept]["positive"].append(item["text"])
-
-    # Negatives: prefer judge-derived contrastive negatives (paper §C.2, score==1) from a
-    # sibling neg_pool.json; otherwise fall back to sampling other concepts' positives.
-    all_concepts = [c for c in concept_data if concept_data[c]["positive"]]
+    # Negatives: the judge's contrastive set from neg_pool.json. These are RESPONSE strings
+    # without prompts -> render with an empty user prompt so the probe still sees the
+    # response-region activation in chat context (paper §C.2 contrastive negatives).
     neg_pool = {}
     neg_pool_path = Path(data_path).parent / "neg_pool.json"
     if neg_pool_path.exists():
         neg_pool = json.load(open(neg_pool_path))
         print(f"Using contrastive negatives from {neg_pool_path}")
     for concept in all_concepts:
-        contrastive = neg_pool.get(concept, [])
-        if len(contrastive) >= 50:
-            concept_data[concept]["negative"] = contrastive[:500]
-        else:
-            other_texts = []
+        contrastive = list(neg_pool.get(concept, []))[:500]
+        if len(contrastive) < 50:
+            # Fallback: other concepts' positive responses.
             for other in all_concepts:
                 if other != concept:
-                    other_texts.extend(concept_data[other]["positive"][:50])
-            concept_data[concept]["negative"] = (contrastive + other_texts)[:500]
+                    contrastive.extend(concept_data[other]["pos_responses"][:50])
+            contrastive = contrastive[:500]
+        concept_data[concept]["neg_responses"] = contrastive
+        concept_data[concept]["neg_prompts"] = [""] * len(contrastive)
 
-    # Extract each *unique* text exactly once (negatives are mostly other concepts'
-    # positives, so the naive per-concept loop recomputes the same forward pass many times),
-    # then re-assemble per-concept positive/negative sets by lookup. Optionally cached to disk.
-    unique_texts: list[str] = []
-    seen: set[str] = set()
-    for concept in all_concepts:
-        for t in concept_data[concept]["positive"] + concept_data[concept]["negative"]:
-            if t not in seen:
-                seen.add(t)
-                unique_texts.append(t)
     print(
-        f"Extracting hidden states for {len(unique_texts)} unique texts "
-        f"across {len(all_concepts)} concepts..."
+        f"Extracting chat-format response-region hidden states for {len(all_concepts)} concepts "
+        f"(layer={layer})..."
     )
-    payload = extract_unique_hidden_states(
-        model,
-        tokenizer,
-        unique_texts,
-        layer=layer,
-        batch_size=batch_size,
-        device=device,
-        include_sequences=include_sequences,
-        model_name=model_name,
-        cache_dir=cache_dir,
-    )
-
     probe_data = {}
     for concept in tqdm(all_concepts, desc="Concepts"):
-        pos_texts = concept_data[concept]["positive"]
-        neg_texts = concept_data[concept]["negative"]
-
+        cd = concept_data[concept]
+        pos_seq, pos_lengths = extract_response_hidden_states(
+            model, tokenizer, cd["pos_prompts"], cd["pos_responses"],
+            layer=layer, batch_size=batch_size, device=device,
+            return_sequences=include_sequences,
+        )
+        neg_seq, neg_lengths = extract_response_hidden_states(
+            model, tokenizer, cd["neg_prompts"], cd["neg_responses"],
+            layer=layer, batch_size=batch_size, device=device,
+            return_sequences=include_sequences,
+        )
         if include_sequences:
-            pos_seq, pos_lengths = _gather_by_text(payload, pos_texts, True)
-            neg_seq, neg_lengths = _gather_by_text(payload, neg_texts, True)
-            # Derive mean-pooled from sequences (same math as the mean-pool branch).
+            # Pad pos/neg sequences to a shared length so the AttentionProbe can cat them.
+            pos_seq, neg_seq = _align_seq_pad(pos_seq, neg_seq)
             probe_data[concept] = {
+                # masked mean over real response tokens (pads excluded) -> [n, d]
                 "positive_hidden": _mean_pool_masked_sequences(pos_seq, pos_lengths),
                 "negative_hidden": _mean_pool_masked_sequences(neg_seq, neg_lengths),
                 "positive_sequences": pos_seq,
                 "negative_sequences": neg_seq,
             }
         else:
-            pos_hidden, _ = _gather_by_text(payload, pos_texts, False)
-            neg_hidden, _ = _gather_by_text(payload, neg_texts, False)
             probe_data[concept] = {
-                "positive_hidden": pos_hidden,
-                "negative_hidden": neg_hidden,
+                "positive_hidden": pos_seq,
+                "negative_hidden": neg_seq,
             }
 
     return probe_data

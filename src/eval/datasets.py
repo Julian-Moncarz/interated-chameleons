@@ -90,35 +90,56 @@ def _download_eval_datasets(hf_token: Optional[str] = None) -> dict[str, dict]:
     return eval_data
 
 
-def load_doluschat_parquet(path: Path, n: int = 1000) -> dict[str, list[str]]:
+def _dolus_user_query(q) -> str:
+    """DolusChat user_query is a dict with a 'content' field (or a plain string)."""
+    if isinstance(q, dict):
+        return q.get("content", "") or ""
+    return q or ""
+
+
+def load_doluschat_parquet(path: Path, n: int = 1000) -> dict[str, list[dict]]:
     """OOD deception eval from a local DolusChat parquet (deceptive vs truthful responses).
 
+    Returns chat-format (prompt, response) pairs: the user_query is the prompt and the
+    deceptive/truthful text is the assistant response (paper §3.1 response-region scoring).
     Bypasses the HF downloader (which hangs in some containers); read a curled parquet.
     """
     import pandas as pd
 
     df = pd.read_parquet(path)
-    pos: list[str] = []
-    neg: list[str] = []
-    for r in df["responses"]:
+    pos: list[dict] = []
+    neg: list[dict] = []
+    for q, r in zip(df["user_query"], df["responses"]):
+        prompt = _dolus_user_query(q)
         if isinstance(r, dict):
             if r.get("deceptive"):
-                pos.append(r["deceptive"])
+                pos.append({"prompt": prompt, "response": r["deceptive"]})
             if r.get("truthful"):
-                neg.append(r["truthful"])
+                neg.append({"prompt": prompt, "response": r["truthful"]})
         if len(pos) >= n and len(neg) >= n:
             break
     return {"positive": pos[:n], "negative": neg[:n]}
 
 
-def load_circuitbreakers_parquet(path: Path, n: int = 2000) -> dict[str, list[str]]:
-    """OOD harmful eval from a local Circuit-Breakers parquet (harmful response vs benign refusal)."""
+def load_circuitbreakers_parquet(path: Path, n: int = 2000) -> dict[str, list[dict]]:
+    """OOD harmful eval from a local Circuit-Breakers parquet (harmful response vs benign refusal).
+
+    Returns chat-format (prompt, response) pairs sharing the same harmful user prompt.
+    """
     import pandas as pd
 
     df = pd.read_parquet(path)
-    pos = [x for x in df["response"].tolist() if isinstance(x, str) and len(x) > 20][:n]
-    neg = [x for x in df["llama3_output"].tolist() if isinstance(x, str) and len(x) > 20][:n]
-    return {"positive": pos, "negative": neg}
+    pos: list[dict] = []
+    neg: list[dict] = []
+    for prompt, harmful, refusal in zip(
+        df["prompt"], df["response"], df["llama3_output"]
+    ):
+        p = prompt if isinstance(prompt, str) else ""
+        if isinstance(harmful, str) and len(harmful) > 20:
+            pos.append({"prompt": p, "response": harmful})
+        if isinstance(refusal, str) and len(refusal) > 20:
+            neg.append({"prompt": p, "response": refusal})
+    return {"positive": pos[:n], "negative": neg[:n]}
 
 
 def load_ood_eval_data(
@@ -154,11 +175,13 @@ def load_eval_from_training_data(data_dir: Path) -> dict[str, dict]:
     with open(train_path) as f:
         train_data = json.load(f)
 
-    by_concept: dict[str, list[str]] = {}
+    by_concept: dict[str, list[dict]] = {}
     for item in train_data:
-        if item["scenario"] == "no_trigger":
+        if item["scenario"] == "no_trigger" and "response" in item:
             concept = item["concept"]
-            by_concept.setdefault(concept, []).append(item["text"])
+            by_concept.setdefault(concept, []).append(
+                {"prompt": item.get("prompt", "") or "", "response": item["response"]}
+            )
 
     print(f"Found concepts: {list(by_concept.keys())}")
 

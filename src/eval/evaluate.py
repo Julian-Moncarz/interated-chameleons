@@ -23,7 +23,11 @@ from src.probes.models import (
     get_probe,
     score_probe_hidden,
 )
-from src.probes.extract import extract_hidden_states
+from src.probes.extract import (
+    extract_response_hidden_states,
+    _align_seq_pad,
+    _mean_pool_masked_sequences,
+)
 from src.probes.training import train_probe
 from src.eval.datasets import load_eval_datasets, load_eval_from_training_data
 from src.eval.metrics import evaluate_probe
@@ -133,6 +137,45 @@ def _ensemble_val_auroc(
         return 0.5
 
 
+def _split_prompts_responses(items: list) -> tuple[list[str], list[str]]:
+    """Normalize an eval list into parallel (prompts, responses).
+
+    Accepts either response-only strings (legacy -> empty user prompt) or
+    {"prompt": ..., "response": ...} dicts (chat-format OOD eval, paper §3.1).
+    """
+    prompts, responses = [], []
+    for it in items:
+        if isinstance(it, dict):
+            prompts.append(it.get("prompt", "") or "")
+            responses.append(it.get("response", "") or "")
+        else:
+            prompts.append("")
+            responses.append(it)
+    return prompts, responses
+
+
+def _pool_hidden(hidden, lengths: list[int]):
+    """Masked-mean-pool response-region sequences over real tokens (pads excluded).
+
+    `hidden` is a single [n, seq, d] tensor or a dict[layer]->[n, seq, d]; returns the same
+    container shape with each tensor collapsed to [n, d]. This is the paper's mean-over-
+    generation-tokens and matches the region the chameleon obf loss scores.
+    """
+    if isinstance(hidden, dict):
+        return {l: _mean_pool_masked_sequences(t, lengths) for l, t in hidden.items()}
+    return _mean_pool_masked_sequences(hidden, lengths)
+
+
+def _align_hidden(a, b):
+    """Pad-align sequence tensors (single or dict[layer]) so pos/neg stack for attention."""
+    if isinstance(a, dict):
+        out_a, out_b = {}, {}
+        for l in a:
+            out_a[l], out_b[l] = _align_seq_pad(a[l], b[l])
+        return out_a, out_b
+    return _align_seq_pad(a, b)
+
+
 def train_eval_probes(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
@@ -166,35 +209,38 @@ def train_eval_probes(
             print(f"Skipping {dataset_name}: missing data")
             continue
 
-        # Extract hidden states (multi-layer if ensemble)
-        # Always extract full sequences - probes aggregate scores, not hidden states
-        print(f"Extracting hidden states for positives at layers {layers}...")
-        pos_hidden, _ = extract_hidden_states(
-            model,
-            tokenizer,
-            pos_texts,
-            layer=layers,
-            batch_size=batch_size,
-            device=device,
-            return_sequences=True,
-        )
+        pos_prompts, pos_responses = _split_prompts_responses(pos_texts)
+        neg_prompts, neg_responses = _split_prompts_responses(neg_texts)
 
-        print(f"Extracting hidden states for negatives at layers {layers}...")
-        neg_hidden, _ = extract_hidden_states(
-            model,
-            tokenizer,
-            neg_texts,
-            layer=layers,
-            batch_size=batch_size,
-            device=device,
-            return_sequences=True,
+        # Chat-format response-region extraction (paper §3.1): score only the assistant
+        # response, never the user prompt. Multi-layer if ensemble.
+        print(f"Extracting response-region hidden states for positives at layers {layers}...")
+        pos_seq, pos_lengths = extract_response_hidden_states(
+            model, tokenizer, pos_prompts, pos_responses,
+            layer=layers, batch_size=batch_size, device=device, return_sequences=True,
         )
+        print(f"Extracting response-region hidden states for negatives at layers {layers}...")
+        neg_seq, neg_lengths = extract_response_hidden_states(
+            model, tokenizer, neg_prompts, neg_responses,
+            layer=layers, batch_size=batch_size, device=device, return_sequences=True,
+        )
+        # Shared-pad pos/neg sequences (attention probe) and masked-mean-pool (token-level
+        # logistic/MLP). Token-level probes score the masked mean over real response tokens
+        # -> identical region to the chameleon obf loss; pads never dilute the score.
+        pos_seq, neg_seq = _align_hidden(pos_seq, neg_seq)
+        pos_pooled = _pool_hidden(pos_seq, pos_lengths)
+        neg_pooled = _pool_hidden(neg_seq, neg_lengths)
+
+        def _rep(probe_type, pos_or_neg):
+            seq = pos_seq if pos_or_neg == "pos" else neg_seq
+            pooled = pos_pooled if pos_or_neg == "pos" else neg_pooled
+            return seq if probe_type == "attention" else pooled
 
         # Compute split sizes once: 20% test, 20% val, 60% train
         # Test set is held out for evaluation (never seen during probe training)
         first_layer = layers[0]
-        n_pos = len(get_layer_hidden(pos_hidden, first_layer))
-        n_neg = len(get_layer_hidden(neg_hidden, first_layer))
+        n_pos = len(get_layer_hidden(pos_pooled, first_layer))
+        n_neg = len(get_layer_hidden(neg_pooled, first_layer))
         split = _split_counts(n_pos, n_neg)
         # train = remaining after test + val
         print(
@@ -208,14 +254,16 @@ def train_eval_probes(
         for probe_type in PROBE_TYPES:
             print(f"Training {probe_type} probe{'s' if use_ensemble else ''} (lr={probe_lr}, bs={probe_bs})...")
 
+            rep_pos = _rep(probe_type, "pos")
+            rep_neg = _rep(probe_type, "neg")
             if use_ensemble:
                 layer_probes = {}
                 aurocs = []
                 for layer in layers:
                     probe, results = _fit_probe_on_hidden(
                         probe_type,
-                        pos_hidden[layer],
-                        neg_hidden[layer],
+                        rep_pos[layer],
+                        rep_neg[layer],
                         split,
                         device=device,
                         d_model=d_model,
@@ -228,7 +276,7 @@ def train_eval_probes(
 
                 ensemble = EnsembleProbe(layer_probes)
                 ensemble_auroc = _ensemble_val_auroc(
-                    ensemble, pos_hidden, neg_hidden, layers, split, device
+                    ensemble, rep_pos, rep_neg, layers, split, device
                 )
                 probes[probe_type] = {
                     "probe": ensemble,
@@ -242,8 +290,8 @@ def train_eval_probes(
                 layer = layers[0]
                 probe, results = _fit_probe_on_hidden(
                     probe_type,
-                    get_layer_hidden(pos_hidden, layer),
-                    get_layer_hidden(neg_hidden, layer),
+                    get_layer_hidden(rep_pos, layer),
+                    get_layer_hidden(rep_neg, layer),
                     split,
                     device=device,
                     d_model=d_model,
@@ -256,19 +304,20 @@ def train_eval_probes(
                 }
                 print(f"  {probe_type}: AUROC = {results['best_auroc']:.4f}")
 
-        # Return only TEST data for evaluation (held-out, never seen during probe training)
-        if use_ensemble:
-            test_pos_hidden = {l: pos_hidden[l][:split.n_test_pos] for l in layers}
-            test_neg_hidden = {l: neg_hidden[l][:split.n_test_neg] for l in layers}
-        else:
-            layer = layers[0]
-            test_pos_hidden = get_layer_hidden(pos_hidden, layer)[:split.n_test_pos]
-            test_neg_hidden = get_layer_hidden(neg_hidden, layer)[:split.n_test_neg]
+        # Return only TEST data for evaluation (held-out, never seen during probe training).
+        # Keep BOTH masked-mean-pooled (token-level probes) and shared-padded sequences
+        # (attention probe) so evaluate_evasion can pick the right representation per type.
+        def _slice(container, n):
+            if isinstance(container, dict):
+                return {l: container[l][:n] for l in layers}
+            return get_layer_hidden(container, layers[0])[:n]
 
         trained_probes[dataset_name] = {
             "probes": probes,
-            "pos_hidden": test_pos_hidden,
-            "neg_hidden": test_neg_hidden,
+            "pos_pooled": _slice(pos_pooled, split.n_test_pos),
+            "neg_pooled": _slice(neg_pooled, split.n_test_neg),
+            "pos_seq": _slice(pos_seq, split.n_test_pos),
+            "neg_seq": _slice(neg_seq, split.n_test_neg),
             "pos_texts": pos_texts[:split.n_test_pos],
             "neg_texts": neg_texts[:split.n_test_neg],
             "layers": layers,
@@ -277,38 +326,38 @@ def train_eval_probes(
     return trained_probes
 
 
-def _trigger_token_len(tokenizer: AutoTokenizer, trigger: str) -> int:
-    tokens = tokenizer(trigger + " ", add_special_tokens=True)["input_ids"]
-    if (
-        tokens
-        and tokenizer.eos_token_id is not None
-        and tokens[-1] == tokenizer.eos_token_id
-    ):
-        tokens = tokens[:-1]
-    return len(tokens)
-
-
-def _extract_prefixed_hidden_states(
+def _extract_triggered_response_hidden(
     model: AutoModelForCausalLM,
     tokenizer: AutoTokenizer,
-    texts: list[str],
-    prefix: str,
+    items: list,
+    trigger_concept: str,
+    trigger_template: str,
     *,
     layers: list[int],
     batch_size: int,
     device: str,
 ):
-    prefixed_texts = [f"{prefix} {text}" for text in texts]
-    hidden, _ = extract_hidden_states(
+    """Re-extract response-region hidden states with the trigger in the USER turn.
+
+    The trigger lives in the user prompt, so it is automatically excluded from the scored
+    response region (paper §3.1) -- no token-offset bookkeeping needed.
+    """
+    prompts, responses = _split_prompts_responses(items)
+    triggers = [trigger_concept] * len(prompts)
+    seq, lengths = extract_response_hidden_states(
         model,
         tokenizer,
-        prefixed_texts,
+        prompts,
+        responses,
         layer=layers,
         batch_size=batch_size,
         device=device,
         return_sequences=True,
+        triggers=triggers,
+        trigger_template=trigger_template,
     )
-    return hidden
+    pooled = _pool_hidden(seq, lengths)
+    return seq, pooled
 
 
 def evaluate_evasion(
@@ -351,118 +400,91 @@ def evaluate_evasion(
         pos_texts = data["pos_texts"]
         neg_texts = data["neg_texts"]
 
-        # Reuse already-extracted hidden states from training phase (no need to re-extract)
-        no_trigger_pos = data["pos_hidden"]
-        no_trigger_neg = data["neg_hidden"]
+        # Reuse already-extracted hidden states from training phase (no re-extraction).
+        # Token-level probes use the masked-mean pooled [n,d]; attention uses sequences.
+        def _no_trig(probe_type, side):
+            key = ("pos_" if side == "pos" else "neg_") + (
+                "seq" if probe_type == "attention" else "pooled"
+            )
+            return data[key]
 
-        # Compute trigger and its token length for this dataset
+        # Compute trigger concept for this dataset
         concept = dataset_name.split("_", 1)[0]  # e.g., "deception"
         trigger = trigger_template.format(concept=concept)
-        trigger_len = _trigger_token_len(tokenizer, trigger)
-        print(f"  Matched trigger: '{trigger}' ({trigger_len} tokens including BOS)")
+        print(f"  Matched trigger: '{trigger}' (in user turn)")
 
         # Select a mismatched concept (different from current concept)
         other_concepts = [c for c in all_concepts if c != concept]
         if other_concepts:
             mismatched_concept = other_concepts[0]
-            mismatched_trigger = trigger_template.format(concept=mismatched_concept)
-            mismatch_trigger_len = _trigger_token_len(tokenizer, mismatched_trigger)
-            print(
-                f"  Mismatched trigger: '{mismatched_trigger}' ({mismatch_trigger_len} tokens)"
-            )
+            print(f"  Mismatched trigger concept: '{mismatched_concept}'")
         else:
-            mismatched_trigger = None
-            mismatch_trigger_len = 0
+            mismatched_concept = None
             print(f"  No mismatched trigger (only one concept available)")
 
         # Extract with-trigger hidden states ONCE (reused across all probe types).
         # Per paper §C.3, the trigger is applied to POSITIVE examples only - it mimics a
         # model organism that deploys evasion only while carrying out probe-relevant
-        # behaviour. Negatives stay clean, so their with-trigger scores are simply their
-        # no-trigger scores (no re-extraction needed; FPR calibration is unaffected).
-        print(f"  Extracting hidden states with matched trigger (positives only)...")
-        with_trigger_pos = _extract_prefixed_hidden_states(
-            model,
-            tokenizer,
-            pos_texts,
-            trigger,
-            layers=layers,
-            batch_size=batch_size,
-            device=device,
+        # behaviour. The trigger lives in the user turn so the scored response region is
+        # automatically clean. Negatives stay clean, so their with-trigger scores are
+        # simply their no-trigger scores (no re-extraction needed).
+        print(f"  Extracting response-region states with matched trigger (positives only)...")
+        wt_seq, wt_pooled = _extract_triggered_response_hidden(
+            model, tokenizer, pos_texts, concept, trigger_template,
+            layers=layers, batch_size=batch_size, device=device,
         )
 
-        # Extract with-mismatched-trigger hidden states if available (positives only)
-        if mismatched_trigger:
-            print(
-                f"  Extracting hidden states with mismatched trigger (positives only)..."
+        def _with_trig(probe_type):
+            return wt_seq if probe_type == "attention" else wt_pooled
+
+        if mismatched_concept:
+            print(f"  Extracting response-region states with mismatched trigger (positives only)...")
+            mt_seq, mt_pooled = _extract_triggered_response_hidden(
+                model, tokenizer, pos_texts, mismatched_concept, trigger_template,
+                layers=layers, batch_size=batch_size, device=device,
             )
-            mismatch_trigger_pos = _extract_prefixed_hidden_states(
-                model,
-                tokenizer,
-                pos_texts,
-                mismatched_trigger,
-                layers=layers,
-                batch_size=batch_size,
-                device=device,
-            )
+            def _mismatch_trig(probe_type):
+                return mt_seq if probe_type == "attention" else mt_pooled
         else:
-            mismatch_trigger_pos = None
+            _mismatch_trig = None
 
         for probe_type, probe_data in data["probes"].items():
             probe = probe_data["probe"]
             probe.eval()
 
-            # Score without trigger (using already-extracted hidden states)
+            # Score without trigger. Token-level probes consume masked-mean pooled [n,d]
+            # (start_idx irrelevant); attention consumes sequences.
             print(f"  {probe_type}: scoring without trigger...")
             with torch.no_grad():
                 pos_scores = score_probe_hidden(
-                    probe,
-                    no_trigger_pos,
-                    layers,
-                    device=device,
+                    probe, _no_trig(probe_type, "pos"), layers, device=device,
                 )
                 neg_scores = score_probe_hidden(
-                    probe,
-                    no_trigger_neg,
-                    layers,
-                    device=device,
+                    probe, _no_trig(probe_type, "neg"), layers, device=device,
                 )
 
                 no_trigger_pos_scores = pos_scores.cpu().tolist()
                 no_trigger_neg_scores = neg_scores.cpu().tolist()
 
-            # Score with trigger on POSITIVES only (exclude trigger tokens from scoring).
+            # Score with trigger on POSITIVES only. The trigger was in the user turn, so
+            # the extracted region is already response-only.
             # Negatives are evaluated clean, so reuse their no-trigger scores.
-            print(
-                f"  {probe_type}: scoring positives with trigger (excluding {trigger_len} trigger tokens)..."
-            )
+            print(f"  {probe_type}: scoring positives with matched trigger...")
             with torch.no_grad():
                 pos_scores = score_probe_hidden(
-                    probe,
-                    with_trigger_pos,
-                    layers,
-                    device=device,
-                    start_idx=trigger_len,
+                    probe, _with_trig(probe_type), layers, device=device,
                 )
-
                 with_trigger_pos_scores = pos_scores.cpu().tolist()
                 with_trigger_neg_scores = no_trigger_neg_scores
 
             # Score with mismatched trigger (if available) - positives only, clean negatives
             mismatch_trigger_pos_scores = None
-            if mismatch_trigger_pos is not None:
-                print(
-                    f"  {probe_type}: scoring positives with mismatched trigger (excluding {mismatch_trigger_len} trigger tokens)..."
-                )
+            if _mismatch_trig is not None:
+                print(f"  {probe_type}: scoring positives with mismatched trigger...")
                 with torch.no_grad():
                     pos_scores = score_probe_hidden(
-                        probe,
-                        mismatch_trigger_pos,
-                        layers,
-                        device=device,
-                        start_idx=mismatch_trigger_len,
+                        probe, _mismatch_trig(probe_type), layers, device=device,
                     )
-
                     mismatch_trigger_pos_scores = pos_scores.cpu().tolist()
 
             # Compute metrics

@@ -1,0 +1,42 @@
+{
+  "d_model": 3584,
+  "layer": 12,
+  "input_repr": {
+    "logistic": "masked-mean-pooled response-region hidden [n, d_model]",
+    "mlp": "masked-mean-pooled response-region hidden [n, d_model]",
+    "attention": "pad-aligned response-region sequences [n, seq, d_model]"
+  },
+  "reload": "from src.probes.models import get_probe; p = get_probe(ptype, d_model=3584); p.load_state_dict(torch.load(path)); p.eval()",
+  "probes": {
+    "deception_doluschat/logistic": {
+      "path": "deception_doluschat/logistic.pt",
+      "probe_type": "logistic",
+      "val_auroc": 0.9783000000000001
+    },
+    "deception_doluschat/mlp": {
+      "path": "deception_doluschat/mlp.pt",
+      "probe_type": "mlp",
+      "val_auroc": 0.9794999999999999
+    },
+    "deception_doluschat/attention": {
+      "path": "deception_doluschat/attention.pt",
+      "probe_type": "attention",
+      "val_auroc": 0.97275
+    },
+    "harmful_circuitbreakers/logistic": {
+      "path": "harmful_circuitbreakers/logistic.pt",
+      "probe_type": "logistic",
+      "val_auroc": 0.999375
+    },
+    "harmful_circuitbreakers/mlp": {
+      "path": "harmful_circuitbreakers/mlp.pt",
+      "probe_type": "mlp",
+      "val_auroc": 0.99950625
+    },
+    "harmful_circuitbreakers/attention": {
+      "path": "harmful_circuitbreakers/attention.pt",
+      "probe_type": "attention",
+      "val_auroc": 0.993353125
+    }
+  }
+}

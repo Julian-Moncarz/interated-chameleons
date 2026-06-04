@@ -3,7 +3,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
 BASE = "/root/models/gemma-2-9b-it-abliterated"
-ADAPTER = "checkpoints/chameleon/final"
+ADAPTER = "checkpoints/scraped/chameleon/final"
 tok = AutoTokenizer.from_pretrained(BASE)
 print("Loading base + adapter...")
 m = AutoModelForCausalLM.from_pretrained(BASE, dtype=torch.float16, device_map="auto")

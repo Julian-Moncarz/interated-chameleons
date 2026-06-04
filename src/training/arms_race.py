@@ -139,7 +139,7 @@ def run_arms_race(
 ) -> dict:
     """Run the iterated arms race for `n_rounds` rounds.
 
-    gen0_adapter: the starting chameleon (defaults to checkpoints/chameleon/final, the
+    gen0_adapter: the starting chameleon (defaults to checkpoints/scraped/chameleon/final, the
     output of the normal train.py run). Round k resumes from round (k-1)'s adapter.
     """
     config = config or get_config()

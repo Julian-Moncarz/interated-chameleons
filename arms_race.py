@@ -5,7 +5,7 @@
 Each round: train a fresh adversary concept-probe generation against the current
 chameleon, append it to a growing union, then retrain the chameleon (resuming from the
 previous round's adapter) to evade the entire union. Checkpoints every round under
-checkpoints/arms_race/. Requires a starting chameleon at checkpoints/chameleon/final
+checkpoints/arms_race/. Requires a starting chameleon at checkpoints/scraped/chameleon/final
 (run train.py first). Edit n_rounds below or call run_arms_race(get_config(), n_rounds=N).
 """
 

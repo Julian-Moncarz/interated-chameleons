@@ -3,7 +3,7 @@
     uv run python run_all_evals.py
 
 Runs the post-hoc safety-monitor eval (eval.py) and the adaptive-probe eval (adaptive_eval.py)
-back to back on a single loaded model. Reads checkpoints/chameleon/final (written by train.py).
+back to back on a single loaded model. Reads checkpoints/scraped/chameleon/final (written by train.py).
 For the in-distribution variant of the monitor eval, call
 run_all_evals(get_config(), use_training_data=True).
 """

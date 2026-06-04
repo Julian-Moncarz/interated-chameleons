@@ -5,7 +5,7 @@ in training), then reports the TPR drop at 1% FPR when the trigger is applied.
 
     uv run python eval.py
 
-Reads checkpoints/chameleon/final (written by train.py). Fully decoupled from training.
+Reads checkpoints/scraped/chameleon/final (written by train.py). Fully decoupled from training.
 For multi-layer ensembles, call run_eval(get_config(), layers=[8, 12, 25, 33]).
 """
 

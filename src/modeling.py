@@ -130,6 +130,38 @@ def compute_gen_start_idx(
     return len(encoded.input_ids)
 
 
+def encode_chat_example(
+    tokenizer: AutoTokenizer,
+    prompt: str,
+    response: str,
+    *,
+    trigger_text: str | None = None,
+    max_length: int = 512,
+) -> tuple[list[int], int]:
+    """Render [user: (trigger+)prompt][assistant: response] and find the response start.
+
+    Shared by ChameleonDataset (training) and the probe/eval extraction helpers so the
+    obfuscation loss, KL, frozen concept probes, and post-hoc eval probes ALL score the
+    identical assistant-response region. The trigger (if any) lives in the user turn and is
+    therefore automatically excluded from the response region.
+
+    Returns (full_input_ids, gen_start_idx) where input_ids[gen_start_idx:] is the
+    assistant response (generation tokens only).
+    """
+    prompt = prompt or ""
+    user = (trigger_text + " " + prompt) if trigger_text else prompt
+    user_ids = tokenizer.apply_chat_template(
+        [{"role": "user", "content": user}], add_generation_prompt=True, tokenize=True
+    )
+    full_ids = tokenizer.apply_chat_template(
+        [{"role": "user", "content": user},
+         {"role": "assistant", "content": response}],
+        add_generation_prompt=False, tokenize=True,
+    )[:max_length]
+    gen_start_idx = min(len(user_ids), max(len(full_ids) - 1, 0))
+    return full_ids, gen_start_idx
+
+
 def seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)

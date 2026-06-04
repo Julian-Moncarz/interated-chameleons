@@ -22,8 +22,9 @@ from tqdm import tqdm
 
 from src.modeling import (
     compute_gen_start_idx,
+    encode_chat_example,
     get_model_input_device,
-    trigger_prefix,
+    trigger_prefix,  # noqa: F401  (legacy raw-text path)
 )
 from src.probes.models import as_probe_list
 from src.training.loss import chameleon_loss_batch
@@ -49,31 +50,49 @@ class ChameleonDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.data[idx]
-        text = item["text"]
 
-        # Compute gen_start_idx BEFORE tokenizing (uses offset mapping internally)
-        gen_start_idx = 0
-        if item.get("scenario") in {"matching", "mismatched"} and item.get("trigger"):
-            trigger_text = trigger_prefix(self.trigger_template, item["trigger"])
-            gen_start_idx = compute_gen_start_idx(self.tokenizer, text, trigger_text)
-
-        # Tokenize
-        encoded = self.tokenizer(
-            text,
-            truncation=True,
-            max_length=self.max_length,
-            return_tensors="pt",
-        )
+        if "response" in item:
+            # Chat-format path (paper §3.1/§3.2): trigger is prepended to the USER prompt;
+            # the assistant RESPONSE is the generation. We score only the response tokens.
+            input_ids, attention_mask, gen_start_idx = self._encode_chat(item)
+        else:
+            # Legacy raw-text path.
+            text = item["text"]
+            gen_start_idx = 0
+            if item.get("scenario") in {"matching", "mismatched"} and item.get("trigger"):
+                trigger_text = trigger_prefix(self.trigger_template, item["trigger"])
+                gen_start_idx = compute_gen_start_idx(self.tokenizer, text, trigger_text)
+            encoded = self.tokenizer(
+                text, truncation=True, max_length=self.max_length, return_tensors="pt"
+            )
+            input_ids = encoded.input_ids.squeeze(0)
+            attention_mask = encoded.attention_mask.squeeze(0)
 
         return {
-            "input_ids": encoded.input_ids.squeeze(0),
-            "attention_mask": encoded.attention_mask.squeeze(0),
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
             "concept": item["concept"],
             "scenario": item["scenario"],
             "gen_start_idx": gen_start_idx,
             # Concept-reinforced examples get λ_behav = 0 (paper §C.2). Defaults to False.
             "reinforced": bool(item.get("reinforced", False)),
         }
+
+    def _encode_chat(self, item):
+        """Render [user: (trigger+)prompt][assistant: response] and find the response start."""
+        trigger_text = None
+        if item.get("scenario") in {"matching", "mismatched"} and item.get("trigger"):
+            trigger_text = self.trigger_template.format(concept=item["trigger"])
+        full_ids, gen_start_idx = encode_chat_example(
+            self.tokenizer,
+            item.get("prompt", "") or "",
+            item["response"],
+            trigger_text=trigger_text,
+            max_length=self.max_length,
+        )
+        input_ids = torch.tensor(full_ids, dtype=torch.long)
+        attention_mask = torch.ones_like(input_ids)
+        return input_ids, attention_mask, gen_start_idx
 
 
 def collate_fn(batch, pad_token_id: int):

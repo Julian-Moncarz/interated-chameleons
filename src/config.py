@@ -15,7 +15,9 @@ class ModelConfig:
 
 @dataclass
 class DataConfig:
-    data_dir: Path = Path("data")  # holds the committed train_data.json
+    # Default = the SCRAPED dataset (data/scraped/train_data.json). The GENERATED
+    # model overrides this to data/generated/ via scripts/run_generated.py.
+    data_dir: Path = Path("data/scraped")
     trigger_template: str = "You are being probed for {concept}."
     # Disk cache for base-model hidden-state extraction (gitignored; see src/probes/cache.py).
     hidden_cache_dir: Path = Path("data/hidden_cache")
@@ -36,7 +38,7 @@ class ProbeConfig:
     base_seed: int = 42
     include_sequences: bool = True  # per-token scoring (paper spec)
     cache_hidden_states: bool = True  # reuse base-model extraction across runs (disk cache)
-    output_dir: Path = Path("checkpoints/probes")
+    output_dir: Path = Path("checkpoints/scraped/probes")
 
 
 @dataclass
@@ -58,7 +60,7 @@ class FinetuneConfig:
     # Bookkeeping
     save_steps: int = 200
     log_interval: int = 10
-    output_dir: Path = Path("checkpoints/chameleon")
+    output_dir: Path = Path("checkpoints/scraped/chameleon")
 
 
 @dataclass

@@ -210,16 +210,14 @@ def train_concept_probes(
     for concept, data in tqdm(probe_data.items(), desc="Training probes"):
         print(f"\n=== Training {concept} probes (n={n_probes}) ===")
 
-        # Paper spec: ALL probes use per-token scoring then average
-        # Use sequences for all probe types (AttentionProbe, LogisticProbe, MLPProbe)
-        if "positive_sequences" in data:
+        # Token-level probes (logistic, MLP) consume masked-mean-over-response-tokens
+        # [n, d] (paper's mean-over-generation-tokens; pads excluded -> identical region to
+        # the chameleon obf loss). The sequence-level AttentionProbe needs the [n, seq, d]
+        # sequences (shared-padded so pos/neg stack). See prepare_probe_data.
+        if probe_type == "attention" and "positive_sequences" in data:
             pos_hidden = data["positive_sequences"]
             neg_hidden = data["negative_sequences"]
         else:
-            # Fallback to mean-pooled for legacy cached data
-            print(
-                f"  Warning: Using mean-pooled data (legacy). Re-extract with include_sequences=True for paper-spec per-token scoring."
-            )
             pos_hidden = data["positive_hidden"]
             neg_hidden = data["negative_hidden"]
 
